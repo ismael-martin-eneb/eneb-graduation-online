@@ -47,9 +47,12 @@ const COUNTRIES = [
   "Estados Unidos", "Brasil", "Portugal", "Andorra", "Marruecos",
 ];
 
-const FIRST_NAMES = [
+const FEMALE_NAMES = [
   "María", "Carmen", "Laura", "Ana", "Isabel", "Sofía", "Lucía", "Elena",
   "Paula", "Claudia", "Valeria", "Camila", "Daniela", "Andrea", "Patricia",
+];
+
+const MALE_NAMES = [
   "Carlos", "Javier", "Alejandro", "Miguel", "Pablo", "David", "Diego",
   "Fernando", "Rodrigo", "Sergio", "Álvaro", "Jorge", "Manuel", "Luis",
   "Adrián", "Mateo", "Hugo", "Raúl", "Óscar", "Ignacio", "Gonzalo",
@@ -93,7 +96,8 @@ function weightedPick(rng, items) {
 }
 
 function genGraduate(rng, idx, programId) {
-  const first = pick(rng, FIRST_NAMES);
+  const gender = rng() < 0.5 ? "f" : "m";
+  const first = pick(rng, gender === "f" ? FEMALE_NAMES : MALE_NAMES);
   const last1 = pick(rng, LAST_NAMES);
   const last2 = pick(rng, LAST_NAMES);
   const name = `${first} ${last1} ${last2}`;
@@ -109,7 +113,6 @@ function genGraduate(rng, idx, programId) {
   }
   // Nota media entre 7.5 y 10
   const grade = (7.5 + rng() * 2.5).toFixed(2);
-  const gender = rng() < 0.5 ? "f" : "m";
   return {
     id: `${programId}-${idx}`,
     name,
