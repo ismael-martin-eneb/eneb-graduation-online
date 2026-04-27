@@ -4,4 +4,6 @@
 api/config.php
 api/config.example.php
 
+# Estructura de la base de datos
+.db/
 
