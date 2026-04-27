@@ -33,6 +33,7 @@ ini_set('log_errors', '1');
 // ---------------------------------------------------------------------------
 
 $configFile = __DIR__ . '/config.php';
+$lib = __DIR__ . '/lib.php';
 
 if (!file_exists($configFile)) {
     http_response_code(500);
@@ -40,7 +41,14 @@ if (!file_exists($configFile)) {
     exit(json_encode(['error' => 'Server misconfiguration']));
 }
 
+if (!file_exists($lib)) {
+    http_response_code(500);
+    error_log('[zoho-webhook] lib.php no encontrado en ' . $lib);
+    exit(json_encode(['error' => 'Server misconfiguration']));
+}
+
 require_once $configFile;
+require_once $lib;
 
 // ---------------------------------------------------------------------------
 // 3. Verificar método HTTP
@@ -104,27 +112,11 @@ if (empty($payload)) {
 // 6. Extraer y validar campos requeridos
 // ---------------------------------------------------------------------------
 
-/**
- * Limpia una cadena de texto: elimina espacios, caracteres de control y
- * limita la longitud para evitar desbordamientos.
- */
-function sanitizeString($value, int $maxLen = 255): string
-{
-    if (!is_string($value) && !is_numeric($value)) {
-        return '';
-    }
-    $clean = preg_replace('/[\x00-\x1F\x7F]/u', '', (string) $value);
-    return mb_substr(trim($clean), 0, $maxLen);
-}
-
 $nombre       = sanitizeString($payload[ZOHO_FIELD_NOMBRE]    ?? '', 255);
 $id_alumno    = sanitizeString($payload[ZOHO_FIELD_ID_ESTUDIANTE] ?? '', 10);
 $foto         = sanitizeString($payload[ZOHO_FIELD_FOTO] ?? '', 255);
 $frase        = sanitizeString($payload[ZOHO_FIELD_FRASE] ?? '', 255);
-$timecreated  = sanitizeString($payload[ZOHO_FIELD_TIMECREATED] ?? '', 30);
-$estado       = sanitizeString($payload[ZOHO_FIELD_ESTADO] ?? '', 50);
-$propietario  = sanitizeString($payload[ZOHO_FIELD_PROPIEARIO] ?? '', 100);
-$detalles_utm = sanitizeString($payload[ZOHO_FIELD_DETALLES_UTM] ?? '', 255);
+$timecreated  = sanitizeDate($payload[ZOHO_FIELD_TIMECREATED] ?? '');
 
 $errors = [];
 
@@ -143,15 +135,6 @@ if ($frase === '') {
 if ($timecreated === '') {
     $errors[] = 'El campo hora agregado es obligatorio';
 }
-if ($estado === '') {
-    $errors[] = 'El campo estado del servicio de archivos adjuntos es obligatorio';
-}
-if ($propietario === '') {
-    $errors[] = 'El campo propietario de la tarea es obligatorio';
-}
-if ($detalles_utm === '') {
-    $errors[] = 'El campo detalles de la campaña de UTM es obligatorio';
-}
 
 if (!empty($errors)) {
     http_response_code(422);
@@ -169,17 +152,15 @@ try {
         PDO::ATTR_EMULATE_PREPARES   => false,
     ]);
 
-    $sql = 'INSERT INTO ' . DB_TABLE . ' (nombre, id_alumno, foto, timecreated, estado, propietario, detalles_utm, raw_payload) VALUES (:nombre, :id_alumno, :foto, :timecreated, :estado, :propietario, :detalles_utm, :raw_payload)';
+    $sql = 'INSERT INTO ' . DB_TABLE . ' (nombre, id_alumno, foto, frase, timecreated, raw_payload) VALUES (:nombre, :id_alumno, :foto, :frase, :timecreated, :raw_payload)';
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
         ':nombre'      => $nombre,
         ':id_alumno'   => $id_alumno,
         ':foto'        => $foto,
+        ':frase'       => $frase,
         ':timecreated' => $timecreated,
-        ':estado'      => $estado,
-        ':propietario' => $propietario,
-        ':detalles_utm' => $detalles_utm,
         ':raw_payload' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
     ]);
 
@@ -193,11 +174,47 @@ try {
 }
 
 // ---------------------------------------------------------------------------
-// 8. Respuesta de éxito
+// 8. Consultar datos del alumno en Moodle (prueba los tres sitios)
+// ---------------------------------------------------------------------------
+
+// $id_alumno ya viene validado del paso 6, no hace falta releer la BD
+$moodleResult = getMoodleEmbajador($id_alumno, $nombre);
+
+if (!$moodleResult['found']) {
+    if (($moodleResult['reason'] ?? '') === 'name_mismatch') {
+        error_log(sprintf(
+            '[zoho-webhook] Nombre no coincide para id_alumno=%s: Zoho="%s" Moodle="%s" score=%.1f%%',
+            $id_alumno, $moodleResult['zoho_name'], $moodleResult['moodle_name'], $moodleResult['score']
+        ));
+        http_response_code(422);
+        exit(json_encode([
+            'error'       => 'El nombre de Zoho no coincide con el registrado en Moodle',
+            'id_alumno'   => $id_alumno,
+            'zoho_name'   => $moodleResult['zoho_name'],
+            'moodle_name' => $moodleResult['moodle_name'],
+            'score'       => $moodleResult['score'],
+            'min_score'   => $moodleResult['min_score'],
+        ]));
+    }
+
+    error_log('[zoho-webhook] Ningún sitio Moodle devolvió datos para id_alumno=' . $id_alumno);
+    http_response_code(404);
+    exit(json_encode([
+        'error'     => 'Alumno no encontrado en ningún campus Moodle',
+        'id_alumno' => $id_alumno,
+        'sites'     => $moodleResult['errors'] ?? [],
+    ]));
+}
+
+// ---------------------------------------------------------------------------
+// 10. Respuesta de éxito
 // ---------------------------------------------------------------------------
 
 http_response_code(201);
 exit(json_encode([
-    'status' => 'ok',
-    'id'     => $insertedId,
+    'status'    => 'ok',
+    'id'        => $insertedId,
+    'id_alumno' => $id_alumno,
+    'site'      => $moodleResult['site'],
+    'moodle'    => $moodleResult['data'],
 ]));
