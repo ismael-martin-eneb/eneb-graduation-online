@@ -1,1 +1,7 @@
 .claude/
+
+# Configuración del webhook (contiene credenciales)
+api/config.php
+api/config.example.php
+
+
