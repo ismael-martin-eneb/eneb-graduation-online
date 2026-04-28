@@ -190,3 +190,126 @@ function getMoodleEmbajador(string $idAlumno, string $zohoNombre, float $minScor
 
     return ['found' => false, 'reason' => 'not_found', 'errors' => $siteErrors];
 }
+
+/**
+ * Sube un fichero a Amazon S3 usando AWS Signature Version 4 (sin dependencias externas).
+ *
+ * Usa virtual-hosted-style URL: https://{bucket}.s3.{region}.amazonaws.com/{key}
+ *
+ * @param string $bucket      Nombre del bucket S3
+ * @param string $region      Región AWS (p. ej. 'eu-west-1', 'us-east-1')
+ * @param string $key         Clave del objeto dentro del bucket (p. ej. 'fotos/imagen.jpg')
+ * @param string $accessKey   AWS Access Key ID
+ * @param string $secretKey   AWS Secret Access Key
+ * @param string $fileContent Contenido binario del fichero
+ * @param string $contentType MIME type del fichero (p. ej. 'image/jpeg')
+ * @return array ['success' => bool, 'url' => string] | ['success' => bool, 'error' => string]
+ */
+function uploadToS3(
+    string $bucket,
+    string $region,
+    string $key,
+    string $accessKey,
+    string $secretKey,
+    string $fileContent,
+    string $contentType
+): array {
+    if (!function_exists('curl_init')) {
+        return ['success' => false, 'error' => 'cURL not available'];
+    }
+
+    $service  = 's3';
+    $host     = $bucket . '.s3.' . $region . '.amazonaws.com';
+
+    // Codificar cada segmento de la ruta por separado (no el separador /)
+    $encodedKey = implode('/', array_map('rawurlencode', explode('/', $key)));
+    $endpoint   = 'https://' . $host . '/' . $encodedKey;
+
+    $datetime    = gmdate('Ymd\THis\Z');
+    $date        = gmdate('Ymd');
+    $payloadHash = hash('sha256', $fileContent);
+
+    // ------------------------------------------------------------------
+    // Paso 1: Petición canónica (AWS SigV4)
+    // ------------------------------------------------------------------
+    $canonicalHeaders = "content-type:{$contentType}\n"
+                      . "host:{$host}\n"
+                      . "x-amz-content-sha256:{$payloadHash}\n"
+                      . "x-amz-date:{$datetime}\n";
+    $signedHeaders    = 'content-type;host;x-amz-content-sha256;x-amz-date';
+
+    $canonicalRequest = implode("\n", [
+        'PUT',
+        '/' . $encodedKey,
+        '',  // query string vacío
+        $canonicalHeaders,
+        $signedHeaders,
+        $payloadHash,
+    ]);
+
+    // ------------------------------------------------------------------
+    // Paso 2: String to Sign
+    // ------------------------------------------------------------------
+    $credentialScope = "{$date}/{$region}/{$service}/aws4_request";
+    $stringToSign    = "AWS4-HMAC-SHA256\n{$datetime}\n{$credentialScope}\n"
+                     . hash('sha256', $canonicalRequest);
+
+    // ------------------------------------------------------------------
+    // Paso 3: Clave de firma derivada (HMAC en cadena)
+    // ------------------------------------------------------------------
+    $kDate    = hash_hmac('sha256', $date,          'AWS4' . $secretKey, true);
+    $kRegion  = hash_hmac('sha256', $region,        $kDate,              true);
+    $kService = hash_hmac('sha256', $service,       $kRegion,            true);
+    $kSigning = hash_hmac('sha256', 'aws4_request', $kService,           true);
+
+    // ------------------------------------------------------------------
+    // Paso 4: Firma y cabecera Authorization
+    // ------------------------------------------------------------------
+    $signature     = hash_hmac('sha256', $stringToSign, $kSigning);
+    $authorization = "AWS4-HMAC-SHA256 Credential={$accessKey}/{$credentialScope},"
+                   . " SignedHeaders={$signedHeaders},"
+                   . " Signature={$signature}";
+
+    // ------------------------------------------------------------------
+    // Petición PUT a S3
+    // ------------------------------------------------------------------
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL,            $endpoint);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST,  'PUT');
+    curl_setopt($ch, CURLOPT_POSTFIELDS,     $fileContent);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT,        60);
+    curl_setopt($ch, CURLOPT_HTTPHEADER,     [
+        'Content-Type: '          . $contentType,
+        'Host: '                  . $host,
+        'x-amz-content-sha256: ' . $payloadHash,
+        'x-amz-date: '           . $datetime,
+        'Authorization: '        . $authorization,
+        'Content-Length: '       . strlen($fileContent),
+    ]);
+
+    if (defined('MOODLE_SSL_VERIFY') && MOODLE_SSL_VERIFY === false) {
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    }
+
+    $response  = curl_exec($ch);
+    $httpCode  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($curlError !== '') {
+        error_log('[s3-upload] cURL error: ' . $curlError);
+        return ['success' => false, 'error' => 'cURL error: ' . $curlError];
+    }
+
+    if ($httpCode !== 200) {
+        error_log('[s3-upload] HTTP ' . $httpCode . ' al subir ' . $key . ': ' . $response);
+        return ['success' => false, 'error' => 'S3 HTTP ' . $httpCode, 'response' => $response];
+    }
+
+    return [
+        'success' => true,
+        'url'     => 'https://' . $host . '/' . $encodedKey,
+    ];
+}

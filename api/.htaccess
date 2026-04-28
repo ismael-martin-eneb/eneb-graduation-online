@@ -3,8 +3,14 @@
     Require all denied
 </Files>
 
-# Solo aceptar POST en el webhook (Apache 2.4+)
+# Solo aceptar POST en los webhooks (Apache 2.4+)
 <Files "webhook-zoho.php">
+    <LimitExcept POST>
+        Require all denied
+    </LimitExcept>
+</Files>
+
+<Files "webhook-foto.php">
     <LimitExcept POST>
         Require all denied
     </LimitExcept>

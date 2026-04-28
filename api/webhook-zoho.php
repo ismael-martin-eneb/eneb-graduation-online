@@ -114,7 +114,7 @@ if (empty($payload)) {
 
 $nombre       = sanitizeString($payload[ZOHO_FIELD_NOMBRE]    ?? '', 255);
 $id_alumno    = sanitizeString($payload[ZOHO_FIELD_ID_ESTUDIANTE] ?? '', 10);
-$foto         = sanitizeString($payload[ZOHO_FIELD_FOTO] ?? '', 255);
+//$foto       = sanitizeString($payload[ZOHO_FIELD_FOTO] ?? '', 255);
 $frase        = sanitizeString($payload[ZOHO_FIELD_FRASE] ?? '', 255);
 $timecreated  = sanitizeDate($payload[ZOHO_FIELD_TIMECREATED] ?? '');
 
@@ -125,9 +125,6 @@ if ($nombre === '') {
 }
 if ($id_alumno === '') {
     $errors[] = 'El campo ID de estudiante es obligatorio';
-}
-if ($foto === '') {
-    $errors[] = 'El campo foto es obligatorio';
 }
 if ($frase === '') {
     $errors[] = 'El campo frase es obligatorio';
@@ -152,19 +149,79 @@ try {
         PDO::ATTR_EMULATE_PREPARES   => false,
     ]);
 
-    $sql = 'INSERT INTO ' . DB_TABLE . ' (nombre, id_alumno, foto, frase, timecreated, raw_payload) VALUES (:nombre, :id_alumno, :foto, :frase, :timecreated, :raw_payload)';
+    // Función auxiliar para calcular similitud de nombres (algoritmo de Levenshtein)
+    $calculateSimilarity = function($str1, $str2) {
+        $str1 = strtolower(trim($str1));
+        $str2 = strtolower(trim($str2));
+        
+        if ($str1 === $str2) {
+            return 100;
+        }
+        
+        $len1 = strlen($str1);
+        $len2 = strlen($str2);
+        $maxLen = max($len1, $len2);
+        
+        if ($maxLen === 0) {
+            return 100;
+        }
+        
+        $distance = levenshtein($str1, $str2);
+        $similarity = (1 - ($distance / $maxLen)) * 100;
+        
+        return max(0, $similarity);
+    };
 
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-        ':nombre'      => $nombre,
-        ':id_alumno'   => $id_alumno,
-        ':foto'        => $foto,
-        ':frase'       => $frase,
-        ':timecreated' => $timecreated,
-        ':raw_payload' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-    ]);
+    // Buscar registros existentes con id_alumno coincidente
+    $searchSql = 'SELECT id, nombre FROM ' . DB_TABLE_ZOHO_LEADS . ' WHERE id_alumno = :id_alumno';
+    $searchStmt = $pdo->prepare($searchSql);
+    $searchStmt->execute([':id_alumno' => $id_alumno]);
+    $existingRecord = $searchStmt->fetch();
 
-    $insertedId = $pdo->lastInsertId();
+    $insertedId = null;
+
+    if ($existingRecord) {
+        // Calcular similitud del nombre (mínimo 80%)
+        $similarity = $calculateSimilarity($nombre, $existingRecord['nombre']);
+        
+        if ($similarity >= 80) {
+            // Actualizar registro existente
+            $updateSql = 'UPDATE ' . DB_TABLE_ZOHO_LEADS . ' SET nombre = :nombre, frase = :frase, timecreated = :timecreated, raw_payload = :raw_payload WHERE id = :id';
+            $updateStmt = $pdo->prepare($updateSql);
+            $updateStmt->execute([
+                ':nombre'      => $nombre,
+                ':frase'       => $frase,
+                ':timecreated' => $timecreated,
+                ':raw_payload' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ':id'          => $existingRecord['id'],
+            ]);
+            $insertedId = $existingRecord['id'];
+        } else {
+            // Insertar nuevo registro si el nombre no coincide al 80%
+            $sql = 'INSERT INTO ' . DB_TABLE_ZOHO_LEADS . ' (nombre, id_alumno, frase, timecreated, raw_payload) VALUES (:nombre, :id_alumno, :frase, :timecreated, :raw_payload)';
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                ':nombre'      => $nombre,
+                ':id_alumno'   => $id_alumno,
+                ':frase'       => $frase,
+                ':timecreated' => $timecreated,
+                ':raw_payload' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ]);
+            $insertedId = $pdo->lastInsertId();
+        }
+    } else {
+        // Insertar nuevo registro si no existe
+        $sql = 'INSERT INTO ' . DB_TABLE_ZOHO_LEADS . ' (nombre, id_alumno, frase, timecreated, raw_payload) VALUES (:nombre, :id_alumno, :frase, :timecreated, :raw_payload)';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            ':nombre'      => $nombre,
+            ':id_alumno'   => $id_alumno,
+            ':frase'       => $frase,
+            ':timecreated' => $timecreated,
+            ':raw_payload' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ]);
+        $insertedId = $pdo->lastInsertId();
+    }
 
 } catch (PDOException $e) {
     http_response_code(500);
@@ -211,10 +268,98 @@ if (!$moodleResult['found']) {
 // ---------------------------------------------------------------------------
 
 http_response_code(201);
-exit(json_encode([
+/*exit(json_encode([
     'status'    => 'ok',
     'id'        => $insertedId,
     'id_alumno' => $id_alumno,
     'site'      => $moodleResult['site'],
     'moodle'    => $moodleResult['data'],
-]));
+]));*/
+
+// Actualizo el registro con el país obtenido de Moodle (si existe)
+$pais = $moodleResult['data']['pais'] ?? null;
+if ($pais !== null) {
+    try {
+        $updateSql = 'UPDATE ' . DB_TABLE_ZOHO_LEADS . ' SET pais = :pais WHERE id = :id';
+        $updateStmt = $pdo->prepare($updateSql);
+        $updateStmt->execute([
+            ':pais' => $pais,
+            ':id'   => $insertedId,
+        ]);
+    } catch (PDOException $e) {
+        error_log('[zoho-webhook] DB error al actualizar país: ' . $e->getMessage());
+    }
+}
+
+$programas = $moodleResult['data']['programas'] ?? [];
+if (!empty($programas)) {
+    try {
+        // Moodle devuelve: curso (string nombre), categoria (int id del curso), nota (double)
+        $graduationDate = date('Y-m-d', $timecreated);
+
+        // Preparar sentencias reutilizables fuera del bucle
+        $checkProgSql  = 'SELECT id FROM ' . DB_TABLE_PROGRAMAS . ' WHERE id_curso = :id_curso AND campus = :campus LIMIT 1';
+        $checkProgStmt = $pdo->prepare($checkProgSql);
+
+        $insertProgSql  = 'INSERT INTO ' . DB_TABLE_PROGRAMAS . ' (id_curso, name, campus) VALUES (:id_curso, :name, :campus)';
+        $insertProgStmt = $pdo->prepare($insertProgSql);
+
+        $checkGradSql  = 'SELECT COUNT(*) FROM ' . DB_TABLE_GRADUADOS . ' WHERE id_alumno = :id_alumno AND program_id = :program_id';
+        $checkGradStmt = $pdo->prepare($checkGradSql);
+
+        $insertGradSql  = 'INSERT INTO ' . DB_TABLE_GRADUADOS . ' (id_alumno, program_id, graduation_date, grade, cumlaude)
+                           VALUES (:id_alumno, :program_id, :graduation_date, :grade, :cumlaude)';
+        $insertGradStmt = $pdo->prepare($insertGradSql);
+
+        foreach ($programas as $prog) {
+            $idCurso        = (int)   $prog['curso_id'];  // ID del curso en Moodle
+            $nombrePrograma = (string) $prog['curso'];     // Nombre del programa
+            $nota           = (float)  $prog['nota'];
+            $cumlaude       = !empty($prog['cumlaude']) ? 1 : 0; // booleano de Moodle
+            // fecha_fin = 0 significa sin fecha; en ese caso usamos timecreated del formulario
+            $fechaGrad      = !empty($prog['fecha_fin'])
+                ? date('d-m-Y', (int) $prog['fecha_fin'])
+                : $graduationDate;
+
+            // 1. Obtener o crear el programa en eneb_programs
+            $checkProgStmt->execute([
+                ':id_curso' => $idCurso,
+                ':campus'   => $moodleResult['site'],
+            ]);
+            $existingProg = $checkProgStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($existingProg) {
+                $programId = (int) $existingProg['id'];
+            } else {
+                $insertProgStmt->execute([
+                    ':id_curso' => $idCurso,
+                    ':name'     => $nombrePrograma,
+                    ':campus'   => $moodleResult['site'],
+                ]);
+                $programId = (int) $pdo->lastInsertId();
+            }
+
+            // 2. Registrar la graduación en eneb_graduates (si no existe ya)
+            $checkGradStmt->execute([
+                ':id_alumno'  => $insertedId,
+                ':program_id' => $programId,
+            ]);
+            $gradExists = (int) $checkGradStmt->fetchColumn();
+
+            if ($gradExists === 0) {
+                $insertGradStmt->execute([
+                    ':id_alumno'       => $insertedId,
+                    ':program_id'      => $programId,
+                    ':graduation_date' => $fechaGrad,
+                    ':grade'           => $nota,
+                    ':cumlaude'        => $cumlaude,
+                ]);
+            }
+        }
+    } catch (PDOException $e) {
+        error_log('[zoho-webhook] DB error al insertar programas/graduados: ' . $e->getMessage());
+    }
+}
+
+
+
