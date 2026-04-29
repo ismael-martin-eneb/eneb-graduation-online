@@ -1,20 +1,64 @@
+var FALLBACK_PHOTOS = [
+  "images/1-girl.png", "images/2-boy.png",  "images/3-girl.png",
+  "images/4-boy.png",  "images/5-girl.png", "images/6-boy.png",
+  "images/7-boy.png",  "images/8-girl.png", "images/9-girl.png",
+  "images/10-boy.png"
+];
+
 function App() {
   const [query, setQuery] = React.useState("");
   const [openGraduate, setOpenGraduate] = React.useState(null);
   const [scrollY, setScrollY] = React.useState(0);
+  const [programs, setPrograms] = React.useState([]);
+  const [graduates, setGraduates] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
 
-  // Abrir ficha por hash (share link)
+  // Referencia mutable para acceder a graduates desde el listener de hashchange
+  const graduatesRef = React.useRef([]);
+  React.useEffect(() => { graduatesRef.current = graduates; }, [graduates]);
+
+  // Cargar datos desde la API
   React.useEffect(() => {
-    const applyHash = () => {
+    fetch((window.API_BASE || "") + "/api/graduates.php")
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var photoIdx = 0;
+        var grads = (data.graduates || []).map(function(g) {
+          if (!g.photo) {
+            return Object.assign({}, g, {
+              photo: FALLBACK_PHOTOS[photoIdx++ % FALLBACK_PHOTOS.length]
+            });
+          }
+          return g;
+        });
+        setPrograms(data.programs || []);
+        setGraduates(grads);
+      })
+      .catch(function() { /* la UI muestra estado vacío */ })
+      .finally(function() { setLoading(false); });
+  }, []);
+
+  // Abrir ficha por hash tras cargar datos
+  React.useEffect(() => {
+    if (graduates.length === 0) return;
+    const m = location.hash.match(/alumno=([^&]+)/);
+    if (m) {
+      const g = graduates.find(function(x) { return x.id === decodeURIComponent(m[1]); });
+      if (g) setOpenGraduate(g);
+    }
+  }, [graduates]);
+
+  // Listener de hashchange (para navegación posterior a la carga)
+  React.useEffect(() => {
+    const applyHash = function() {
       const m = location.hash.match(/alumno=([^&]+)/);
       if (m) {
-        const g = window.ENEB_GRADUATES.find((x) => x.id === decodeURIComponent(m[1]));
+        const g = graduatesRef.current.find(function(x) { return x.id === decodeURIComponent(m[1]); });
         if (g) setOpenGraduate(g);
       }
     };
-    applyHash();
     window.addEventListener("hashchange", applyHash);
-    return () => window.removeEventListener("hashchange", applyHash);
+    return function() { window.removeEventListener("hashchange", applyHash); };
   }, []);
 
   // Paralaje del fondo
@@ -33,20 +77,20 @@ function App() {
 
   const q = query.trim().toLowerCase();
   const filtered = q
-    ? window.ENEB_GRADUATES.filter(
-        (g) =>
-          g.name.toLowerCase().includes(q) ||
-          g.country.toLowerCase().includes(q)
-      )
-    : window.ENEB_GRADUATES;
+    ? graduates.filter(function(g) {
+        return g.name.toLowerCase().includes(q) ||
+               g.country.toLowerCase().includes(q);
+      })
+    : graduates;
 
   const byProgram = {};
   for (const g of filtered) {
-    (byProgram[g.programId] ||= []).push(g);
+    if (!byProgram[g.programId]) byProgram[g.programId] = [];
+    byProgram[g.programId].push(g);
   }
 
   const program = openGraduate
-    ? window.ENEB_PROGRAMS.find((p) => p.id === openGraduate.programId)
+    ? programs.find(function(p) { return p.id === openGraduate.programId; })
     : null;
 
   const handleClose = () => {
@@ -100,23 +144,27 @@ function App() {
           </p>
         </section>
 
-        {q && filtered.length === 0 && (
+        {loading && (
+          <div className="empty" style={{ opacity: 0.7 }}>Cargando graduados…</div>
+        )}
+
+        {!loading && q && filtered.length === 0 && (
           <div className="empty">
             No hemos encontrado a nadie con <strong>“{query}”</strong>. Prueba con otro nombre o país.
           </div>
         )}
 
-        {window.ENEB_PROGRAMS.map((p) => (
+        {programs.map(function(p) { return (
           <window.ProgramSection
             key={p.id}
             program={p}
             graduates={byProgram[p.id] || []}
-            onOpen={(g) => {
+            onOpen={function(g) {
               setOpenGraduate(g);
-              history.replaceState(null, "", `#alumno=${g.id}`);
+              history.replaceState(null, "", "#alumno=" + g.id);
             }}
           />
-        ))}
+        ); })}
 
         <footer className="foot">
           <div className="foot__row">
