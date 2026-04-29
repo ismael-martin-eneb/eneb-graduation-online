@@ -129,7 +129,7 @@ if (!empty($errors)) {
 $photoName = basename($photoName);
 
 // Validar extensión: solo imágenes permitidas
-$allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+$allowedExtensions = ['jpg', 'jpeg', 'png'];
 $ext = strtolower(pathinfo($photoName, PATHINFO_EXTENSION));
 
 if (!in_array($ext, $allowedExtensions, true)) {
@@ -240,27 +240,11 @@ if ($imageData === false || $imageData === '') {
     exit(json_encode(['error' => 'Zoho WorkDrive devolvió una respuesta vacía']));
 }
 
-// Verificar que el contenido descargado es realmente una imagen
-$allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-$detectedMime     = '';
-
-if (function_exists('finfo_open')) {
-    $finfo        = finfo_open(FILEINFO_MIME_TYPE);
-    $detectedMime = (string) finfo_buffer($finfo, $imageData);
-    finfo_close($finfo);
-}
-
-if ($detectedMime !== '' && !in_array($detectedMime, $allowedMimeTypes, true)) {
-    http_response_code(422);
-    error_log('[webhook-foto] MIME no permitido: ' . $detectedMime . ' para ' . $photoName);
-    exit(json_encode(['error' => 'El contenido descargado no es una imagen válida', 'mime' => $detectedMime]));
-}
-
 // ---------------------------------------------------------------------------
 // 10. Validar que el contenido descargado es realmente una imagen
 // ---------------------------------------------------------------------------
 
-$allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+$allowedMimeTypes = ['image/jpeg', 'image/png'];
 $detectedMime     = '';
 
 if (function_exists('finfo_open')) {
@@ -275,12 +259,34 @@ if ($detectedMime !== '' && !in_array($detectedMime, $allowedMimeTypes, true)) {
     exit(json_encode(['error' => 'El contenido descargado no es una imagen válida', 'mime' => $detectedMime]));
 }
 
-// Determinar el Content-Type para S3: preferimos el MIME detectado
-$mimeMap    = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp'];
+// Determinar el Content-Type: preferimos el MIME detectado; si no, lo derivamos de la extensión
+$mimeMap    = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png'];
 $uploadMime = $detectedMime !== '' ? $detectedMime : ($mimeMap[$ext] ?? 'application/octet-stream');
 
 // ---------------------------------------------------------------------------
-// 11. Subir la imagen a AWS S3
+// 11. Procesar la imagen con Google AI (eliminar fondo + añadir detalles)
+// ---------------------------------------------------------------------------
+
+$aiResult = processImageWithGoogleAI($imageData, $uploadMime);
+
+if (!$aiResult['success']) {
+    http_response_code(502);
+    error_log('[webhook-foto] Error en procesamiento Google AI: ' . ($aiResult['error'] ?? 'unknown'));
+    exit(json_encode([
+        'error'  => 'Error al procesar la imagen con Google AI',
+        'detail' => $aiResult['error'] ?? '',
+    ]));
+}
+
+// Reemplazar imagen original por la procesada
+$imageData  = $aiResult['data'];
+$uploadMime = $aiResult['mimeType'];  // Gemini devuelve image/png
+
+// Actualizar nombre de fichero a .png (Gemini siempre devuelve PNG)
+$photoName = pathinfo($photoName, PATHINFO_FILENAME) . '.png';
+
+// ---------------------------------------------------------------------------
+// 12. Subir la imagen procesada a AWS S3
 // ---------------------------------------------------------------------------
 
 $s3Key    = rtrim(AWS_S3_PREFIX, '/') . '/' . $photoName;
@@ -304,7 +310,7 @@ if (!$s3Result['success']) {
 $fotoUrl = $s3Result['url'];
 
 // ---------------------------------------------------------------------------
-// 12. Actualizar la columna foto en zoho_leads con la URL de S3
+// 13. Actualizar la columna foto en zoho_leads con la URL de S3
 // ---------------------------------------------------------------------------
 
 try {
@@ -320,7 +326,7 @@ try {
 }
 
 // ---------------------------------------------------------------------------
-// 13. Respuesta de éxito
+// 14. Respuesta de éxito
 // ---------------------------------------------------------------------------
 
 http_response_code(200);

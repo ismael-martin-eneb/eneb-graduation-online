@@ -4,6 +4,9 @@
 api/config.php
 api/config.example.php
 
+# Service Account key de Google Cloud (contiene clave privada RSA)
+api/google-service-account.json
+
 # Estructura de la base de datos
 .db/
 

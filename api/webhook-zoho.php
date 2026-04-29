@@ -263,27 +263,15 @@ if (!$moodleResult['found']) {
     ]));
 }
 
-// ---------------------------------------------------------------------------
-// 10. Respuesta de éxito
-// ---------------------------------------------------------------------------
-
-http_response_code(201);
-/*exit(json_encode([
-    'status'    => 'ok',
-    'id'        => $insertedId,
-    'id_alumno' => $id_alumno,
-    'site'      => $moodleResult['site'],
-    'moodle'    => $moodleResult['data'],
-]));*/
-
 // Actualizo el registro con el país obtenido de Moodle (si existe)
 $pais = $moodleResult['data']['pais'] ?? null;
 if ($pais !== null) {
     try {
-        $updateSql = 'UPDATE ' . DB_TABLE_ZOHO_LEADS . ' SET pais = :pais WHERE id = :id';
+        $updateSql = 'UPDATE ' . DB_TABLE_ZOHO_LEADS . ' SET pais = :pais, campus = :campus WHERE id = :id';
         $updateStmt = $pdo->prepare($updateSql);
         $updateStmt->execute([
             ':pais' => $pais,
+            ':campus' => $moodleResult['site'],
             ':id'   => $insertedId,
         ]);
     } catch (PDOException $e) {
@@ -318,7 +306,7 @@ if (!empty($programas)) {
             $cumlaude       = !empty($prog['cumlaude']) ? 1 : 0; // booleano de Moodle
             // fecha_fin = 0 significa sin fecha; en ese caso usamos timecreated del formulario
             $fechaGrad      = !empty($prog['fecha_fin'])
-                ? date('d-m-Y', (int) $prog['fecha_fin'])
+                ? date('Y-m-d', (int) $prog['fecha_fin'])
                 : $graduationDate;
 
             // 1. Obtener o crear el programa en eneb_programs
@@ -360,6 +348,19 @@ if (!empty($programas)) {
         error_log('[zoho-webhook] DB error al insertar programas/graduados: ' . $e->getMessage());
     }
 }
+
+// ---------------------------------------------------------------------------
+// 10. Respuesta de éxito
+// ---------------------------------------------------------------------------
+
+http_response_code(201);
+exit(json_encode([
+    'status'    => 'ok',
+    'id'        => $insertedId,
+    'id_alumno' => $id_alumno,
+    'site'      => $moodleResult['site'],
+    'moodle'    => $moodleResult['data'],
+]));
 
 
 

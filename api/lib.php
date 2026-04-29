@@ -313,3 +313,248 @@ function uploadToS3(
         'url'     => 'https://' . $host . '/' . $encodedKey,
     ];
 }
+
+/**
+ * Elimina el fondo de una imagen usando Imagen 3 (Vertex AI) via BGREMOVAL.
+ *
+ * Utiliza el endpoint `:predict` de imagen-3.0-capability-001 con
+ * editMode=BGREMOVAL. No necesita prompt de texto — la operación es
+ * puramente de segmentación y eliminación de fondo.
+ *
+ * Requiere en config.php:
+ *   GOOGLE_CLOUD_PROJECT_ID         — ID del proyecto GCP
+ *   GOOGLE_CLOUD_LOCATION           — Región (p. ej. 'us-central1')
+ *   GOOGLE_AI_MODEL                 — 'imagen-3.0-capability-001' o '...-002'
+ *   GOOGLE_SERVICE_ACCOUNT_KEY_FILE — Ruta absoluta al JSON de la Service Account
+ *
+ * @param string $imageData  Contenido binario de la imagen original
+ * @param string $mimeType   MIME type de la imagen (p. ej. 'image/jpeg')
+ * @return array ['success'=>true, 'data'=>string, 'mimeType'=>string]
+ *             | ['success'=>false, 'error'=>string, 'detail'=>string]
+ */
+function processImageWithGoogleAI(string $imageData, string $mimeType): array
+{
+    // -----------------------------------------------------------------
+    // 1. Obtener access token OAuth2 desde la Service Account
+    // -----------------------------------------------------------------
+    $tokenResult = _getVertexAIAccessToken();
+    if (!$tokenResult['success']) {
+        return ['success' => false, 'error' => $tokenResult['error']];
+    }
+    $accessToken = $tokenResult['token'];
+
+    // -----------------------------------------------------------------
+    // 2. Construir el endpoint de Vertex AI Imagen (:predict)
+    // -----------------------------------------------------------------
+    $project  = defined('GOOGLE_CLOUD_PROJECT_ID') ? GOOGLE_CLOUD_PROJECT_ID : '';
+    $location = defined('GOOGLE_CLOUD_LOCATION')   ? GOOGLE_CLOUD_LOCATION   : 'us-central1';
+    $model    = defined('GOOGLE_AI_MODEL')          ? GOOGLE_AI_MODEL         : 'imagen-3.0-capability-001';
+
+    if ($project === '') {
+        error_log('[google-ai] GOOGLE_CLOUD_PROJECT_ID no configurado');
+        return ['success' => false, 'error' => 'GOOGLE_CLOUD_PROJECT_ID no configurado'];
+    }
+
+    $url = sprintf(
+        'https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:predict',
+        rawurlencode($location),
+        rawurlencode($project),
+        rawurlencode($location),
+        rawurlencode($model)
+    );
+
+    // -----------------------------------------------------------------
+    // 3. Construir el cuerpo de la petición (Imagen edit — background removal)
+    //    Formato confirmado para imagen-3.0-capability-001:
+    //    - La imagen va en referenceImages con REFERENCE_TYPE_SUBJECT + subjectImageConfig
+    //    - editMode = 'product-image' va en editConfig (dentro del instance)
+    //    - sampleCount va en parameters
+    // -----------------------------------------------------------------
+    $body = json_encode([
+        'instances' => [[
+            'referenceImages' => [[
+                'referenceType'      => 'REFERENCE_TYPE_SUBJECT',
+                'referenceId'        => 1,
+                'referenceImage'     => ['bytesBase64Encoded' => base64_encode($imageData)],
+                'subjectImageConfig' => ['subjectType' => 'SUBJECT_TYPE_PERSON'],
+            ]],
+            'prompt'     => 'remove the background',
+            'editConfig' => ['editMode' => 'product-image'],
+        ]],
+        'parameters' => [
+            'sampleCount' => 1,
+        ],
+    ]);
+
+    if ($body === false) {
+        return ['success' => false, 'error' => 'Error al serializar la petición a Vertex AI'];
+    }
+
+    // -----------------------------------------------------------------
+    // 4. Llamar a la API
+    // -----------------------------------------------------------------
+    if (!function_exists('curl_init')) {
+        return ['success' => false, 'error' => 'cURL not available'];
+    }
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL,            $url);
+    curl_setopt($ch, CURLOPT_POST,           true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS,     $body);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT,        120);
+    curl_setopt($ch, CURLOPT_HTTPHEADER,     [
+        'Content-Type: application/json',
+        'Authorization: Bearer ' . $accessToken,
+    ]);
+
+    if (defined('MOODLE_SSL_VERIFY') && MOODLE_SSL_VERIFY === false) {
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    }
+
+    $response  = curl_exec($ch);
+    $httpCode  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($curlError !== '') {
+        error_log('[google-ai] cURL error: ' . $curlError);
+        return ['success' => false, 'error' => 'cURL error: ' . $curlError];
+    }
+
+    if ($httpCode !== 200) {
+        error_log('[google-ai] HTTP ' . $httpCode . ': ' . $response);
+        return ['success' => false, 'error' => 'Vertex AI HTTP ' . $httpCode, 'detail' => $response];
+    }
+
+    $data = json_decode($response, true);
+    if (!is_array($data)) {
+        error_log('[google-ai] Respuesta no JSON: ' . $response);
+        return ['success' => false, 'error' => 'Respuesta no válida de Vertex AI'];
+    }
+
+    // -----------------------------------------------------------------
+    // 5. Extraer la imagen procesada de predictions[]
+    // -----------------------------------------------------------------
+    $prediction = $data['predictions'][0] ?? null;
+    if (isset($prediction['bytesBase64Encoded'])) {
+        $processedBytes = base64_decode($prediction['bytesBase64Encoded']);
+        $processedMime  = $prediction['mimeType'] ?? 'image/png';
+        if ($processedBytes !== false && $processedBytes !== '') {
+            return [
+                'success'  => true,
+                'data'     => $processedBytes,
+                'mimeType' => $processedMime,
+            ];
+        }
+    }
+
+    error_log('[google-ai] No se encontró imagen en predictions: ' . $response);
+    return [
+        'success' => false,
+        'error'   => 'Vertex AI Imagen no devolvió imagen procesada',
+        'detail'  => substr($response, 0, 500),
+    ];
+}
+
+/**
+ * Obtiene un access token de OAuth2 usando la Service Account de GCP.
+ *
+ * Construye un JWT firmado con RS256 y lo intercambia por un access token
+ * en el endpoint de OAuth2 de Google. No requiere dependencias externas,
+ * solo la extensión openssl de PHP (ya incluida en PHP 7.4+).
+ *
+ * @return array ['success'=>true, 'token'=>string] | ['success'=>false, 'error'=>string]
+ */
+function _getVertexAIAccessToken(): array
+{
+    if (!defined('GOOGLE_SERVICE_ACCOUNT_KEY_FILE') || GOOGLE_SERVICE_ACCOUNT_KEY_FILE === '') {
+        return ['success' => false, 'error' => 'GOOGLE_SERVICE_ACCOUNT_KEY_FILE no configurado'];
+    }
+
+    $keyFile = GOOGLE_SERVICE_ACCOUNT_KEY_FILE;
+
+    if (!file_exists($keyFile)) {
+        error_log('[google-ai] Service account key no encontrada: ' . $keyFile);
+        return ['success' => false, 'error' => 'Service account key file no encontrado'];
+    }
+
+    $keyData = json_decode(file_get_contents($keyFile), true);
+    if (!is_array($keyData) || !isset($keyData['private_key'], $keyData['client_email'])) {
+        error_log('[google-ai] Formato inválido del service account key file');
+        return ['success' => false, 'error' => 'Service account key file inválido'];
+    }
+
+    $now = time();
+
+    // Construir JWT (header.payload.signature) con RS256
+    $header  = _base64url(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
+    $payload = _base64url(json_encode([
+        'iss'   => $keyData['client_email'],
+        'scope' => 'https://www.googleapis.com/auth/cloud-platform',
+        'aud'   => 'https://oauth2.googleapis.com/token',
+        'iat'   => $now,
+        'exp'   => $now + 3600,
+    ]));
+
+    $signingInput = $header . '.' . $payload;
+    $privateKey   = openssl_pkey_get_private($keyData['private_key']);
+
+    if ($privateKey === false) {
+        error_log('[google-ai] No se pudo cargar la clave privada del service account');
+        return ['success' => false, 'error' => 'Private key inválida en service account'];
+    }
+
+    $signature = '';
+    openssl_sign($signingInput, $signature, $privateKey, OPENSSL_ALGO_SHA256);
+    openssl_free_key($privateKey);  // PHP 7.4 requiere liberar explícitamente
+
+    $jwt = $signingInput . '.' . _base64url($signature);
+
+    // Intercambiar JWT por access token
+    if (!function_exists('curl_init')) {
+        return ['success' => false, 'error' => 'cURL not available'];
+    }
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL,            'https://oauth2.googleapis.com/token');
+    curl_setopt($ch, CURLOPT_POST,           true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS,     http_build_query([
+        'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        'assertion'  => $jwt,
+    ]));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT,        15);
+
+    $response  = curl_exec($ch);
+    $httpCode  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($curlError !== '') {
+        error_log('[google-ai] cURL error al obtener token: ' . $curlError);
+        return ['success' => false, 'error' => 'cURL error obteniendo access token'];
+    }
+
+    if ($httpCode !== 200) {
+        error_log('[google-ai] OAuth2 token endpoint HTTP ' . $httpCode . ': ' . $response);
+        return ['success' => false, 'error' => 'Error OAuth2 HTTP ' . $httpCode];
+    }
+
+    $tokenData = json_decode($response, true);
+    if (!isset($tokenData['access_token'])) {
+        error_log('[google-ai] No se recibió access_token: ' . $response);
+        return ['success' => false, 'error' => 'No se recibió access_token de Google'];
+    }
+
+    return ['success' => true, 'token' => $tokenData['access_token']];
+}
+
+/**
+ * Codifica en Base64 URL-safe (sin padding), requerido por el estándar JWT.
+ */
+function _base64url(string $data): string
+{
+    return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+}
