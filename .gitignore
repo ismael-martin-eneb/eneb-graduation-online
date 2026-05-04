@@ -7,6 +7,9 @@ api/config.example.php
 # Service Account key de Google Cloud (contiene clave privada RSA)
 api/google-service-account.json
 
+# Caché de token de Zoho WorkDrive (se regenera automáticamente)
+api/zoho_token_cache.json
+
 # Estructura de la base de datos
 .db/
 

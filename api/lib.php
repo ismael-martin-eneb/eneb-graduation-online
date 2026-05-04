@@ -191,6 +191,94 @@ function getMoodleEmbajador(string $idAlumno, string $zohoNombre, float $minScor
     return ['found' => false, 'reason' => 'not_found', 'errors' => $siteErrors];
 }
 
+// ---------------------------------------------------------------------------
+// Zoho WorkDrive — Auto-refresh de access token
+// ---------------------------------------------------------------------------
+
+/**
+ * Devuelve un access token válido para Zoho WorkDrive.
+ *
+ * Estrategia:
+ *   1. Guarda el último token y su expiración en un fichero de caché junto
+ *      a config.php (fuera del docroot, no accesible vía web).
+ *   2. Si el token en caché sigue vigente (con 2 min de margen), lo devuelve.
+ *   3. Si caducó o no existe, llama a accounts.zoho.eu para renovarlo con el
+ *      refresh token y guarda el resultado en la caché.
+ *
+ * Requiere en config.php:
+ *   ZOHO_WORKDRIVE_CLIENT_ID, ZOHO_WORKDRIVE_CLIENT_SECRET,
+ *   ZOHO_WORKDRIVE_REFRESH_TOKEN
+ *
+ * @return string  Access token listo para usar en la cabecera Authorization.
+ * @throws RuntimeException si no se puede renovar el token.
+ */
+function getZohoWorkDriveToken(): string
+{
+    $cacheFile = __DIR__ . '/zoho_token_cache.json';
+    $margin    = 120; // renovar 2 min antes de que caduque
+
+    // 1. Leer caché
+    if (file_exists($cacheFile)) {
+        $cache = json_decode(file_get_contents($cacheFile), true);
+        if (
+            is_array($cache)
+            && isset($cache['access_token'], $cache['expires_at'])
+            && time() < ((int) $cache['expires_at'] - $margin)
+        ) {
+            return (string) $cache['access_token'];
+        }
+    }
+
+    // 2. Renovar token
+    if (!function_exists('curl_init')) {
+        throw new RuntimeException('[zoho-token] cURL no está disponible');
+    }
+
+    $postFields = http_build_query([
+        'grant_type'    => 'refresh_token',
+        'client_id'     => ZOHO_WORKDRIVE_CLIENT_ID,
+        'client_secret' => ZOHO_WORKDRIVE_CLIENT_SECRET,
+        'refresh_token' => ZOHO_WORKDRIVE_REFRESH_TOKEN,
+    ]);
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL,            'https://accounts.zoho.eu/oauth/v2/token');
+    curl_setopt($ch, CURLOPT_POST,           true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS,     $postFields);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT,        15);
+    curl_setopt($ch, CURLOPT_HTTPHEADER,     ['Content-Type: application/x-www-form-urlencoded']);
+    $response  = curl_exec($ch);
+    $httpCode  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($curlError !== '') {
+        throw new RuntimeException('[zoho-token] cURL error: ' . $curlError);
+    }
+    if ($httpCode !== 200) {
+        throw new RuntimeException('[zoho-token] HTTP ' . $httpCode . ': ' . $response);
+    }
+
+    $data = json_decode($response, true);
+    if (empty($data['access_token'])) {
+        throw new RuntimeException('[zoho-token] Respuesta inesperada: ' . $response);
+    }
+
+    // Zoho devuelve expires_in en segundos (normalmente 3600)
+    $expiresIn = isset($data['expires_in']) ? (int) $data['expires_in'] : 3600;
+
+    // 3. Guardar caché
+    $cache = [
+        'access_token' => $data['access_token'],
+        'expires_at'   => time() + $expiresIn,
+    ];
+    file_put_contents($cacheFile, json_encode($cache), LOCK_EX);
+
+    error_log('[zoho-token] Token renovado. Expira en ' . $expiresIn . 's');
+    return (string) $data['access_token'];
+}
+
 /**
  * Sube un fichero a Amazon S3 usando AWS Signature Version 4 (sin dependencias externas).
  *

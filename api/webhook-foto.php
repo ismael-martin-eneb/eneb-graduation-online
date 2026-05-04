@@ -208,7 +208,7 @@ curl_setopt($ch, CURLOPT_TIMEOUT, 30);
 curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'Authorization: Zoho-oauthtoken ' . ZOHO_WORKDRIVE_ACCESS_TOKEN,
+    'Authorization: Zoho-oauthtoken ' . getZohoWorkDriveToken(),
 ]);
 // En dev local se puede desactivar la verificación SSL (igual que con Moodle)
 if (defined('MOODLE_SSL_VERIFY') && MOODLE_SSL_VERIFY === false) {
