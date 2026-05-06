@@ -26,29 +26,23 @@ header('X-Content-Type-Options: nosniff');
 
 require_once __DIR__ . '/config.php';
 
-// Mapa de códigos ISO 3166-1 alpha-2 a nombres en español
-$COUNTRY_NAMES = [
-    'ES' => 'España',       'MX' => 'México',       'CO' => 'Colombia',
-    'AR' => 'Argentina',    'CL' => 'Chile',         'PE' => 'Perú',
-    'EC' => 'Ecuador',      'VE' => 'Venezuela',     'UY' => 'Uruguay',
-    'PY' => 'Paraguay',     'BO' => 'Bolivia',       'CR' => 'Costa Rica',
-    'PA' => 'Panamá',       'DO' => 'Rep. Dominicana', 'GT' => 'Guatemala',
-    'HN' => 'Honduras',     'SV' => 'El Salvador',   'NI' => 'Nicaragua',
-    'CU' => 'Cuba',         'PR' => 'Puerto Rico',   'US' => 'Estados Unidos',
-    'BR' => 'Brasil',       'PT' => 'Portugal',      'AD' => 'Andorra',
-    'MA' => 'Marruecos',    'FR' => 'Francia',       'DE' => 'Alemania',
-    'IT' => 'Italia',       'GB' => 'Reino Unido',   'NL' => 'Países Bajos',
-    'BE' => 'Bélgica',      'CH' => 'Suiza',         'AT' => 'Austria',
-    'PL' => 'Polonia',      'RO' => 'Rumanía',       'TR' => 'Turquía',
-    'MX' => 'México',
+// Códigos ISO 3166-1 alpha-2 conocidos (solo para validación; los nombres se traducen en el frontend)
+$KNOWN_COUNTRY_CODES = [
+    'ES','MX','CO','AR','CL','PE','EC','VE','UY','PY','BO','CR','PA','DO',
+    'GT','HN','SV','NI','CU','PR','US','BR','PT','AD','MA','FR','DE','IT',
+    'GB','NL','BE','CH','AT','PL','RO','TR',
 ];
 
-function deriveHonor($grade, $cumlaude) {
-    if ($cumlaude) return 'Cum Laude';
-    if ($grade >= 9.0) return 'Sobresaliente';
-    if ($grade >= 8.0) return 'Notable Alto';
-    if ($grade >= 7.0) return 'Notable';
-    return 'Aprobado';
+/**
+ * Devuelve una clave de traducción neutral; el frontend la convierte
+ * a la cadena localizada mediante i18n (honor_cum_laude, etc.).
+ */
+function deriveHonorKey($grade, $cumlaude) {
+    if ($cumlaude)       return 'cum_laude';
+    if ($grade >= 9.0)   return 'sobresaliente';
+    if ($grade >= 8.0)   return 'notable_alto';
+    if ($grade >= 7.0)   return 'notable';
+    return 'aprobado';
 }
 
 function deriveBadges($cumlaude) {
@@ -94,7 +88,7 @@ try {
             'id'        => (string) $row['id'],
             'name'      => $row['name'],
             'shortName' => deriveShortName($row['name']),
-            'promo'     => 'Promoción 2026',
+            'year'      => 2026,
             'campus'    => $row['campus'],
         ];
     }
@@ -125,9 +119,8 @@ try {
 
     foreach ($rows as $row) {
         $rawPais  = $row['pais'] !== null ? strtoupper(trim((string) $row['pais'])) : '';
-        $country  = ($rawPais !== '' && isset($COUNTRY_NAMES[$rawPais]))
-            ? $COUNTRY_NAMES[$rawPais]
-            : ($rawPais !== '' ? $rawPais : 'Desconocido');
+        // Se devuelve el código ISO directamente; el frontend lo traduce con i18n.
+        $country  = ($rawPais !== '') ? $rawPais : 'unknown';
         $grade    = $row['grade'] !== null    ? (float) $row['grade']    : 0.0;
         $cumlaude = $row['cumlaude'] !== null ? (int)   $row['cumlaude'] : 0;
         $year     = $row['graduation_date']
@@ -139,7 +132,7 @@ try {
             'name'      => $row['name'],
             'country'   => $country,
             'programId' => (string) $row['program_id'],
-            'honor'     => deriveHonor($grade, $cumlaude),
+            'honor'     => deriveHonorKey($grade, $cumlaude),
             'grade'     => number_format($grade, 2, '.', ''),
             'badges'    => deriveBadges($cumlaude),
             'year'      => $year,

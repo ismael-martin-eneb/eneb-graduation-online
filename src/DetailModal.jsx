@@ -46,13 +46,13 @@ function DetailModal({ graduate, program, onClose }) {
             <window.Avatar size={220} tone="dark" gender={graduate.gender} photo={graduate.photo} />
           </div>
           <div className="modal__hero-text">
-            <div className="modal__kicker">{t("classOf")} {graduate.year} · {graduate.country}</div>
+            <div className="modal__kicker">{t("classOf")} {graduate.year} · {t("country_" + graduate.country, graduate.country)}</div>
             <h2 className="modal__name">{graduate.name}</h2>
             <div className="modal__program">{program.name}</div>
             <div className="modal__honor-row">
               <span className="modal__pill modal__pill--gold">
                 <window.IconGrade size={14} color="#a30911" />
-                {graduate.honor}
+                {t("honor_" + graduate.honor, graduate.honor)}
               </span>
               <span className="modal__pill">{ t("averageGrade") } {graduate.grade}</span>
             </div>

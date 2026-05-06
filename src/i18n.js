@@ -27,6 +27,26 @@ window.TRANSLATIONS = {
     averageGrade: "Nota media",
     shareTitle: "Graduado/a ENEB",
     shareText: "se ha graduado en",
+    // Honores
+    honor_cum_laude:     "Cum Laude",
+    honor_sobresaliente: "Sobresaliente",
+    honor_notable_alto:  "Notable Alto",
+    honor_notable:       "Notable",
+    honor_aprobado:      "Aprobado",
+    // Países (código ISO → nombre)
+    country_unknown: "Desconocido",
+    country_ES: "España",        country_MX: "México",         country_CO: "Colombia",
+    country_AR: "Argentina",     country_CL: "Chile",          country_PE: "Perú",
+    country_EC: "Ecuador",       country_VE: "Venezuela",      country_UY: "Uruguay",
+    country_PY: "Paraguay",      country_BO: "Bolivia",        country_CR: "Costa Rica",
+    country_PA: "Panamá",        country_DO: "Rep. Dominicana",country_GT: "Guatemala",
+    country_HN: "Honduras",      country_SV: "El Salvador",    country_NI: "Nicaragua",
+    country_CU: "Cuba",          country_PR: "Puerto Rico",    country_US: "Estados Unidos",
+    country_BR: "Brasil",        country_PT: "Portugal",       country_AD: "Andorra",
+    country_MA: "Marruecos",     country_FR: "Francia",        country_DE: "Alemania",
+    country_IT: "Italia",        country_GB: "Reino Unido",    country_NL: "Países Bajos",
+    country_BE: "Bélgica",       country_CH: "Suiza",          country_AT: "Austria",
+    country_PL: "Polonia",       country_RO: "Rumanía",        country_TR: "Turquía",
   },
   en: {
     searchPlaceholder: "Find me…",
@@ -52,6 +72,26 @@ window.TRANSLATIONS = {
     averageGrade: "Average grade",
     shareTitle: "ENEB Graduate",
     shareText: "has graduated in",
+    // Honors
+    honor_cum_laude:     "Cum Laude",
+    honor_sobresaliente: "Outstanding",
+    honor_notable_alto:  "High Merit",
+    honor_notable:       "Merit",
+    honor_aprobado:      "Pass",
+    // Countries (ISO code → name)
+    country_unknown: "Unknown",
+    country_ES: "Spain",         country_MX: "Mexico",         country_CO: "Colombia",
+    country_AR: "Argentina",     country_CL: "Chile",          country_PE: "Peru",
+    country_EC: "Ecuador",       country_VE: "Venezuela",      country_UY: "Uruguay",
+    country_PY: "Paraguay",      country_BO: "Bolivia",        country_CR: "Costa Rica",
+    country_PA: "Panama",        country_DO: "Dominican Rep.", country_GT: "Guatemala",
+    country_HN: "Honduras",      country_SV: "El Salvador",    country_NI: "Nicaragua",
+    country_CU: "Cuba",          country_PR: "Puerto Rico",    country_US: "United States",
+    country_BR: "Brazil",        country_PT: "Portugal",       country_AD: "Andorra",
+    country_MA: "Morocco",       country_FR: "France",         country_DE: "Germany",
+    country_IT: "Italy",         country_GB: "United Kingdom", country_NL: "Netherlands",
+    country_BE: "Belgium",       country_CH: "Switzerland",    country_AT: "Austria",
+    country_PL: "Poland",        country_RO: "Romania",        country_TR: "Turkey",
   },
   pt: {
     searchPlaceholder: "Encontrar-me…",
@@ -77,17 +117,40 @@ window.TRANSLATIONS = {
     averageGrade: "Nota média",
     shareTitle: "Graduado/a ENEB",
     shareText: "graduou-se em",
+    // Honras
+    honor_cum_laude:     "Cum Laude",
+    honor_sobresaliente: "Distinção",
+    honor_notable_alto:  "Muito Bom",
+    honor_notable:       "Bom",
+    honor_aprobado:      "Aprovado",
+    // Países (código ISO → nome)
+    country_unknown: "Desconhecido",
+    country_ES: "Espanha",       country_MX: "México",         country_CO: "Colômbia",
+    country_AR: "Argentina",     country_CL: "Chile",          country_PE: "Peru",
+    country_EC: "Equador",       country_VE: "Venezuela",      country_UY: "Uruguai",
+    country_PY: "Paraguai",      country_BO: "Bolívia",        country_CR: "Costa Rica",
+    country_PA: "Panamá",        country_DO: "Rep. Dominicana",country_GT: "Guatemala",
+    country_HN: "Honduras",      country_SV: "El Salvador",    country_NI: "Nicarágua",
+    country_CU: "Cuba",          country_PR: "Porto Rico",     country_US: "Estados Unidos",
+    country_BR: "Brasil",        country_PT: "Portugal",       country_AD: "Andorra",
+    country_MA: "Marrocos",      country_FR: "França",         country_DE: "Alemanha",
+    country_IT: "Itália",        country_GB: "Reino Unido",    country_NL: "Países Baixos",
+    country_BE: "Bélgica",       country_CH: "Suíça",          country_AT: "Áustria",
+    country_PL: "Polônia",       country_RO: "Romênia",        country_TR: "Turquia",
   },
 };
 
 // React context — valor por defecto "es"
 window.LangContext = React.createContext("es");
 
-// Hook reutilizable: devuelve función t(key)
+// Hook reutilizable: devuelve función t(key, fallback?)
 window.useT = function () {
   var lang = React.useContext(window.LangContext);
-  return function (key) {
+  return function (key, fallback) {
     var dict = window.TRANSLATIONS[lang] || window.TRANSLATIONS["es"];
-    return dict[key] !== undefined ? dict[key] : key;
+    if (dict[key] !== undefined) return dict[key];
+    // Fallback al español si la clave existe allí
+    if (window.TRANSLATIONS["es"][key] !== undefined) return window.TRANSLATIONS["es"][key];
+    return fallback !== undefined ? fallback : key;
   };
 };
