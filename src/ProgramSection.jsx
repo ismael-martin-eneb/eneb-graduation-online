@@ -1,12 +1,13 @@
 // Sección por programa con fila de tarjetas
 function ProgramSection({ program, graduates, onOpen }) {
+  const t = window.useT();
   if (graduates.length === 0) return null;
   return (
     <section className="program" data-screen-label={program.shortName}>
       <div className="program__header">
         <h2 className="program__title">{program.name}</h2>
         <div className="program__subtitle">
-          <span>Graduados con Honores</span>
+          <span>{t("graduatesWithHonors")}</span>
           <span className="program__medal">
             <window.IconMedal size={22} color="#fff" />
           </span>

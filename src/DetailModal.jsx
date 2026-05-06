@@ -1,6 +1,7 @@
 // Modal con ficha detallada del alumno
 function DetailModal({ graduate, program, onClose }) {
   const [copied, setCopied] = React.useState(false);
+  const t = window.useT();
 
   React.useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
@@ -15,8 +16,8 @@ function DetailModal({ graduate, program, onClose }) {
   const handleShare = async () => {
     const url = `${location.origin}${location.pathname}#alumno=${graduate.id}`;
     const shareData = {
-      title: `${graduate.name} — Graduado/a ENEB`,
-      text: `${graduate.name} se ha graduado en ${program.shortName} — ENEB`,
+      title: `${graduate.name} — ${t("shareTitle")}`,
+      text: `${graduate.name} ${t("shareText")} ${program.shortName} — ENEB`,
       url,
     };
     try {
@@ -36,7 +37,7 @@ function DetailModal({ graduate, program, onClose }) {
   return (
     <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <button className="modal__close" onClick={onClose} aria-label="Cerrar">
+        <button className="modal__close" onClick={onClose} aria-label={t("close")}>
           <window.IconClose size={22} color="#fff" />
         </button>
 
@@ -45,7 +46,7 @@ function DetailModal({ graduate, program, onClose }) {
             <window.Avatar size={220} tone="dark" gender={graduate.gender} photo={graduate.photo} />
           </div>
           <div className="modal__hero-text">
-            <div className="modal__kicker">Promoción {graduate.year} · {graduate.country}</div>
+            <div className="modal__kicker">{t("classOf")} {graduate.year} · {graduate.country}</div>
             <h2 className="modal__name">{graduate.name}</h2>
             <div className="modal__program">{program.name}</div>
             <div className="modal__honor-row">
@@ -53,14 +54,14 @@ function DetailModal({ graduate, program, onClose }) {
                 <window.IconGrade size={14} color="#a30911" />
                 {graduate.honor}
               </span>
-              <span className="modal__pill">Nota media {graduate.grade}</span>
+              <span className="modal__pill">{ t("averageGrade") } {graduate.grade}</span>
             </div>
           </div>
         </div>
 
         {graduate.badges.length > 0 && (
           <div className="modal__section">
-            <div className="modal__section-title">Reconocimientos</div>
+            <div className="modal__section-title">{t("achievements")}</div>
             <div className="modal__badges">
               {graduate.badges.map((b) => {
                 const Icon = badgeIcon(b.icon);
@@ -78,16 +79,16 @@ function DetailModal({ graduate, program, onClose }) {
         )}
 
         <div className="modal__section">
-          <div className="modal__section-title">Mensaje de graduación</div>
+          <div className="modal__section-title">{t("graduationMessage")}</div>
           <p className="modal__message">“{graduate.message}”</p>
         </div>
 
         <div className="modal__footer">
           <button className="btn btn--ghost" onClick={handleShare}>
             <window.IconShare size={16} color="#fff" />
-            {copied ? "Enlace copiado ✓" : "Compartir ficha"}
+            {copied ? t("linkCopied") : t("shareProfile")}
           </button>
-          <button className="btn btn--solid" onClick={onClose}>Cerrar</button>
+          <button className="btn btn--solid" onClick={onClose}>{t("close")}</button>
         </div>
       </div>
     </div>

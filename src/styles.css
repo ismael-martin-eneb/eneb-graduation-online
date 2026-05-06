@@ -122,6 +122,31 @@ a { color: inherit; }
 }
 .search input::placeholder { color: rgba(255,255,255,0.85); }
 
+/* ---------- Language switcher ---------- */
+.lang-switcher {
+  display: flex;
+  gap: 2px;
+  background: rgba(255,255,255,0.08);
+  border: 2px solid rgba(255,255,255,0.45);
+  border-radius: 76px;
+  padding: 4px;
+}
+.lang-btn {
+  background: transparent;
+  border: 0;
+  color: rgba(255,255,255,0.75);
+  font-family: "Poppins", sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.lang-btn:hover { color: #fff; background: rgba(255,255,255,0.14); }
+.lang-btn--active { background: rgba(255,255,255,0.92); color: #a30911; }
+
 /* ---------- Content ---------- */
 .content {
   position: relative;

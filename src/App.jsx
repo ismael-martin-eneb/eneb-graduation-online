@@ -1,4 +1,4 @@
-var FALLBACK_PHOTOS = [
+﻿var FALLBACK_PHOTOS = [
   "images/1-girl.png", "images/2-boy.png",  "images/3-girl.png",
   "images/4-boy.png",  "images/5-girl.png", "images/6-boy.png",
   "images/7-boy.png",  "images/8-girl.png", "images/9-girl.png",
@@ -12,6 +12,12 @@ function App() {
   const [programs, setPrograms] = React.useState([]);
   const [graduates, setGraduates] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
+  const [lang, setLang] = React.useState("es");
+
+  const t = (key) => {
+    var dict = window.TRANSLATIONS[lang] || window.TRANSLATIONS["es"];
+    return dict[key] !== undefined ? dict[key] : key;
+  };
 
   // Referencia mutable para acceder a graduates desde el listener de hashchange
   const graduatesRef = React.useRef([]);
@@ -101,6 +107,7 @@ function App() {
   };
 
   return (
+    <window.LangContext.Provider value={lang}>
     <div className="app">
       <div
         className="app__bg"
@@ -115,9 +122,9 @@ function App() {
       />
 
       <header className="topbar">
-        <button className="iconbtn" aria-label="Menú">
+        {/* <button className="iconbtn" aria-label="Menú">
           <window.IconList size={28} color="#fff" />
-        </button>
+        </button> */}
         <div className="brand">ENEB</div>
         <label className="search">
           <window.IconSearch size={18} color="#fff" />
@@ -125,32 +132,41 @@ function App() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Encontrarme..."
-            aria-label="Buscar graduado"
+            placeholder={t("searchPlaceholder")}
+            aria-label={t("searchLabel")}
           />
         </label>
+        <div className="lang-switcher" role="group" aria-label="Idioma / Language">
+          {["es", "en", "pt"].map((l) => (
+            <button
+              key={l}
+              className={"lang-btn" + (lang === l ? " lang-btn--active" : "")}
+              onClick={() => setLang(l)}
+              aria-pressed={lang === l}
+            >
+              {l.toUpperCase()}
+            </button>
+          ))}
+        </div>
       </header>
 
       <main className="content">
         <section className="hero" data-screen-label="00 Hero">
-          <div className="hero__eyebrow">Graduación Online 2026</div>
+          <div className="hero__eyebrow">{t("heroEyebrow")}</div>
           <h1 className="hero__title">
-            Hoy celebramos<br />
-            <span className="hero__title--accent">vuestro esfuerzo.</span>
+            {t("heroTitle1")}<br />
+            <span className="hero__title--accent">{t("heroTitle2")}</span>
           </h1>
-          <p className="hero__lead">
-            Encuentra tu nombre, descubre a tus compañeros y comparte con el mundo el momento
-            en el que todo lo aprendido se convierte en un nuevo comienzo.
-          </p>
+          <p className="hero__lead">{t("heroLead")}</p>
         </section>
 
         {loading && (
-          <div className="empty" style={{ opacity: 0.7 }}>Cargando graduados…</div>
+          <div className="empty" style={{ opacity: 0.7 }}>{t("loading")}</div>
         )}
 
         {!loading && q && filtered.length === 0 && (
           <div className="empty">
-            No hemos encontrado a nadie con <strong>“{query}”</strong>. Prueba con otro nombre o país.
+            {t("noResultsBefore")}<strong>"{query}"</strong>{t("noResultsAfter")}
           </div>
         )}
 
@@ -168,8 +184,8 @@ function App() {
 
         <footer className="foot">
           <div className="foot__row">
-            <div className="foot__brand">ENEB · Escuela de Negocios</div>
-            <div className="foot__meta">Graduación Online · Promoción 2026</div>
+            <div className="foot__brand">{t("footerBrand")}</div>
+            <div className="foot__meta">{t("footerMeta")}</div>
           </div>
         </footer>
       </main>
@@ -178,6 +194,7 @@ function App() {
         <window.DetailModal graduate={openGraduate} program={program} onClose={handleClose} />
       )}
     </div>
+    </window.LangContext.Provider>
   );
 }
 

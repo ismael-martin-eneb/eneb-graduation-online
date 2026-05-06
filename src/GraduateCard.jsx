@@ -1,12 +1,13 @@
 // Tarjeta compacta del alumno (la que aparece en las filas)
 function GraduateCard({ g, onClick }) {
+  const t = window.useT();
   const hasBadges = g.badges && g.badges.length > 0;
   return (
     <button
       type="button"
       className="card"
       onClick={onClick}
-      aria-label={`Ver ficha de ${g.name}`}
+      aria-label={`${t("viewProfile")} ${g.name}`}
     >
       <div className="card__photo">
         <window.Avatar gender={g.gender} size={101} photo={g.photo} />
