@@ -403,17 +403,21 @@ function uploadToS3(
 }
 
 /**
- * Elimina el fondo de una imagen usando Imagen 3 (Vertex AI) via BGREMOVAL.
+ * Procesa la foto de un graduado con Vertex AI Imagen 3 (pipeline de 2 pasos):
  *
- * Utiliza el endpoint `:predict` de imagen-3.0-capability-001 con
- * editMode=BGREMOVAL. No necesita prompt de texto — la operación es
- * puramente de segmentación y eliminación de fondo.
+ *   Paso 1 — BGREMOVAL: elimina el fondo original (sea el que sea) y devuelve
+ *             la persona sobre un fondo de color sólido variable (croma).
+ *             Post-proceso GD: flood-fill desde los bordes para reemplazar ese
+ *             fondo sólido por blanco puro.
+ *
+ *   Paso 2 — Transformación a toga: usando REFERENCE_TYPE_SUBJECT + SUBJECT_TYPE_PERSON
+ *             el modelo genera al mismo alumno vestido con toga académica negra,
+ *             birrete negro y beca de color #e41416, sobre fondo blanco.
+ *             Si este paso falla, se devuelve como fallback la imagen del Paso 1.
  *
  * Requiere en config.php:
- *   GOOGLE_CLOUD_PROJECT_ID         — ID del proyecto GCP
- *   GOOGLE_CLOUD_LOCATION           — Región (p. ej. 'us-central1')
- *   GOOGLE_AI_MODEL                 — 'imagen-3.0-capability-001' o '...-002'
- *   GOOGLE_SERVICE_ACCOUNT_KEY_FILE — Ruta absoluta al JSON de la Service Account
+ *   GOOGLE_CLOUD_PROJECT_ID, GOOGLE_CLOUD_LOCATION, GOOGLE_AI_MODEL,
+ *   GOOGLE_SERVICE_ACCOUNT_KEY_FILE
  *
  * @param string $imageData  Contenido binario de la imagen original
  * @param string $mimeType   MIME type de la imagen (p. ej. 'image/jpeg')
@@ -422,8 +426,12 @@ function uploadToS3(
  */
 function processImageWithGoogleAI(string $imageData, string $mimeType): array
 {
+    if (!function_exists('curl_init')) {
+        return ['success' => false, 'error' => 'cURL not available'];
+    }
+
     // -----------------------------------------------------------------
-    // 1. Obtener access token OAuth2 desde la Service Account
+    // 1. Access token OAuth2
     // -----------------------------------------------------------------
     $tokenResult = _getVertexAIAccessToken();
     if (!$tokenResult['success']) {
@@ -432,7 +440,7 @@ function processImageWithGoogleAI(string $imageData, string $mimeType): array
     $accessToken = $tokenResult['token'];
 
     // -----------------------------------------------------------------
-    // 2. Construir el endpoint de Vertex AI Imagen (:predict)
+    // 2. Endpoint
     // -----------------------------------------------------------------
     $project  = defined('GOOGLE_CLOUD_PROJECT_ID') ? GOOGLE_CLOUD_PROJECT_ID : '';
     $location = defined('GOOGLE_CLOUD_LOCATION')   ? GOOGLE_CLOUD_LOCATION   : 'us-central1';
@@ -451,49 +459,136 @@ function processImageWithGoogleAI(string $imageData, string $mimeType): array
         rawurlencode($model)
     );
 
-    // -----------------------------------------------------------------
-    // 3. Construir el cuerpo de la petición (Imagen edit — background removal)
-    //    Formato confirmado para imagen-3.0-capability-001:
-    //    - La imagen va en referenceImages con REFERENCE_TYPE_SUBJECT + subjectImageConfig
-    //    - editMode = 'product-image' va en editConfig (dentro del instance)
-    //    - sampleCount va en parameters
-    // -----------------------------------------------------------------
-    $body = json_encode([
+    // =================================================================
+    // PASO 1: BGREMOVAL — aislar persona sobre fondo sólido de croma
+    // =================================================================
+    $bgBody = json_encode([
+        'instances' => [[
+            'referenceImages' => [[
+                'referenceType'  => 'REFERENCE_TYPE_RAW',
+                'referenceId'    => 1,
+                'referenceImage' => ['bytesBase64Encoded' => base64_encode($imageData)],
+            ]],
+            'prompt'     => 'remove the background',
+            'editConfig' => ['editMode' => 'BGREMOVAL'],
+        ]],
+        'parameters' => ['sampleCount' => 1],
+    ]);
+
+    $bgResult = _vertexPredict($url, $bgBody, $accessToken);
+    if (!$bgResult['success']) {
+        // Si BGREMOVAL falla, continuar con la imagen original (fallback silencioso)
+        error_log('[google-ai] Paso 1 (BGREMOVAL) falló: ' . $bgResult['error'] . ' — usando imagen original');
+        $workingImage = $imageData;
+    } else {
+        // -----------------------------------------------------------------
+        // Post-proceso GD: reemplazar el fondo de color sólido por blanco
+        // usando flood-fill desde los bordes exteriores (no afecta a la persona).
+        // -----------------------------------------------------------------
+        $whiteBytes = _floodFillToWhite($bgResult['data']);
+
+        // Verificar que el flood-fill realmente limpió el fondo:
+        // si las 4 esquinas son blancas (≥240) el Paso 1 funcionó correctamente.
+        // Si no, el fondo era demasiado complejo (p. ej. pared de ladrillo + ventana)
+        // y es mejor usar la imagen original para el Paso 2.
+        $bgClean = false;
+        if ($whiteBytes !== false && function_exists('imagecreatefromstring')) {
+            $tmp = @imagecreatefromstring($whiteBytes);
+            if ($tmp !== false) {
+                $tw = imagesx($tmp);
+                $th = imagesy($tmp);
+                $corners = [
+                    imagecolorat($tmp, 0,       0),
+                    imagecolorat($tmp, $tw - 1, 0),
+                    imagecolorat($tmp, 0,       $th - 1),
+                    imagecolorat($tmp, $tw - 1, $th - 1),
+                ];
+                $bgClean = true;
+                foreach ($corners as $c) {
+                    if ((($c >> 16) & 0xFF) < 240 || (($c >> 8) & 0xFF) < 240 || ($c & 0xFF) < 240) {
+                        $bgClean = false;
+                        break;
+                    }
+                }
+                imagedestroy($tmp);
+            }
+        }
+
+        if ($bgClean) {
+            $workingImage = $whiteBytes;
+            error_log('[google-ai] Paso 1 (BGREMOVAL) OK — fondo limpio, usando imagen con fondo blanco');
+        } else {
+            $workingImage = $imageData;
+            error_log('[google-ai] Paso 1 (BGREMOVAL) descartado — fondo complejo, usando imagen original para el Paso 2');
+        }
+    }
+
+    // =================================================================
+    // PASO 2: Transformación a toga — REFERENCE_TYPE_SUBJECT + product-image
+    //         Preserva la identidad del alumno y le viste con:
+    //           · Ropa formal oscura y elegante
+    //           · Beca mate roja #e41416 (sin brillo)
+    //           · Fondo blanco puro
+    //           · Cara, pelo y tono de piel sin modificar
+    // =================================================================
+    $graduationPrompt =
+        'Professional formal portrait photograph. ' .
+        'The same person wearing dark elegant clothes. ' .
+        'A single solid deep red sash band going diagonally across the torso from the left shoulder down to the right hip, like a presidential sash. Only one band, not crossed, no X shape. Completely plain with no text, no letters, no embroidery. ' .
+        'Clean plain white studio background. Sharp, well illuminated high quality professional portrait photography. ' .
+        'Preserve exactly the person\'s face, facial features, eye shape, nose, lips, skin tone, hairstyle and hair color. The face must remain identical to the original.';
+
+    $togsBody = json_encode([
         'instances' => [[
             'referenceImages' => [[
                 'referenceType'      => 'REFERENCE_TYPE_SUBJECT',
                 'referenceId'        => 1,
-                'referenceImage'     => ['bytesBase64Encoded' => base64_encode($imageData)],
+                'referenceImage'     => ['bytesBase64Encoded' => base64_encode($workingImage)],
                 'subjectImageConfig' => ['subjectType' => 'SUBJECT_TYPE_PERSON'],
             ]],
-            'prompt'     => 'remove the background',
+            'prompt'     => $graduationPrompt,
             'editConfig' => ['editMode' => 'product-image'],
         ]],
         'parameters' => [
-            'sampleCount' => 1,
+            'sampleCount'      => 1,
+            'personGeneration' => 'allow_all',
         ],
     ]);
 
-    if ($body === false) {
-        return ['success' => false, 'error' => 'Error al serializar la petición a Vertex AI'];
+    $togsResult = _vertexPredict($url, $togsBody, $accessToken);
+    if (!$togsResult['success']) {
+        // Fallback: devolver imagen con fondo blanco sin transformar la ropa
+        error_log('[google-ai] Paso 2 (toga) falló: ' . $togsResult['error'] . ' — usando fallback fondo blanco');
+        return [
+            'success'  => true,
+            'data'     => $workingImage,
+            'mimeType' => 'image/png',
+        ];
     }
 
-    // -----------------------------------------------------------------
-    // 4. Llamar a la API
-    // -----------------------------------------------------------------
-    if (!function_exists('curl_init')) {
-        return ['success' => false, 'error' => 'cURL not available'];
-    }
+    return $togsResult;
+}
 
+/**
+ * Realiza una llamada POST al endpoint :predict de Vertex AI Imagen.
+ *
+ * @param string $url
+ * @param string $jsonBody  Cuerpo ya codificado en JSON
+ * @param string $token     Bearer token OAuth2
+ * @return array ['success'=>true, 'data'=>string, 'mimeType'=>string]
+ *             | ['success'=>false, 'error'=>string, 'detail'=>string]
+ */
+function _vertexPredict(string $url, string $jsonBody, string $token): array
+{
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL,            $url);
     curl_setopt($ch, CURLOPT_POST,           true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS,     $body);
+    curl_setopt($ch, CURLOPT_POSTFIELDS,     $jsonBody);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT,        120);
     curl_setopt($ch, CURLOPT_HTTPHEADER,     [
         'Content-Type: application/json',
-        'Authorization: Bearer ' . $accessToken,
+        'Authorization: Bearer ' . $token,
     ]);
 
     if (defined('MOODLE_SSL_VERIFY') && MOODLE_SSL_VERIFY === false) {
@@ -510,7 +605,6 @@ function processImageWithGoogleAI(string $imageData, string $mimeType): array
         error_log('[google-ai] cURL error: ' . $curlError);
         return ['success' => false, 'error' => 'cURL error: ' . $curlError];
     }
-
     if ($httpCode !== 200) {
         error_log('[google-ai] HTTP ' . $httpCode . ': ' . $response);
         return ['success' => false, 'error' => 'Vertex AI HTTP ' . $httpCode, 'detail' => $response];
@@ -522,28 +616,142 @@ function processImageWithGoogleAI(string $imageData, string $mimeType): array
         return ['success' => false, 'error' => 'Respuesta no válida de Vertex AI'];
     }
 
-    // -----------------------------------------------------------------
-    // 5. Extraer la imagen procesada de predictions[]
-    // -----------------------------------------------------------------
     $prediction = $data['predictions'][0] ?? null;
-    if (isset($prediction['bytesBase64Encoded'])) {
-        $processedBytes = base64_decode($prediction['bytesBase64Encoded']);
-        $processedMime  = $prediction['mimeType'] ?? 'image/png';
-        if ($processedBytes !== false && $processedBytes !== '') {
-            return [
-                'success'  => true,
-                'data'     => $processedBytes,
-                'mimeType' => $processedMime,
-            ];
+    if (!isset($prediction['bytesBase64Encoded'])) {
+        error_log('[google-ai] Sin imagen en predictions: ' . $response);
+        return [
+            'success' => false,
+            'error'   => 'Vertex AI no devolvió imagen',
+            'detail'  => substr($response, 0, 500),
+        ];
+    }
+
+    $bytes = base64_decode($prediction['bytesBase64Encoded']);
+    if ($bytes === false || $bytes === '') {
+        return ['success' => false, 'error' => 'Error al decodificar base64 de Vertex AI'];
+    }
+
+    return [
+        'success'  => true,
+        'data'     => $bytes,
+        'mimeType' => $prediction['mimeType'] ?? 'image/png',
+    ];
+}
+
+/**
+ * Reemplaza el fondo de color sólido de una imagen PNG por blanco puro.
+ *
+ * Estrategia: flood-fill iterativo (SplQueue) desde todos los píxeles del
+ * perímetro exterior. Solo se reemplazan píxeles conectados al borde cuyo
+ * color sea similar al promedio de las 8 muestras de esquina/borde.
+ * Esto preserva íntegramente la persona interior.
+ *
+ * También elimina el letterbox negro (padding < 30,30,30) que añade el modelo.
+ *
+ * @param string $imageBytes  Contenido binario PNG de entrada
+ * @return string|false       PNG resultante con fondo blanco, o false si GD no está disponible
+ */
+function _floodFillToWhite(string $imageBytes)
+{
+    if (!function_exists('imagecreatefromstring') || !class_exists('SplQueue')) {
+        return false;
+    }
+
+    $src = @imagecreatefromstring($imageBytes);
+    if ($src === false) {
+        return false;
+    }
+
+    $w = imagesx($src);
+    $h = imagesy($src);
+
+    // Estimar color de fondo desde 8 puntos de borde
+    $edgeSamples = [
+        imagecolorat($src, 0,             0),
+        imagecolorat($src, $w - 1,        0),
+        imagecolorat($src, 0,             $h - 1),
+        imagecolorat($src, $w - 1,        $h - 1),
+        imagecolorat($src, (int)($w / 2), 0),
+        imagecolorat($src, (int)($w / 2), $h - 1),
+        imagecolorat($src, 0,             (int)($h / 2)),
+        imagecolorat($src, $w - 1,        (int)($h / 2)),
+    ];
+    $sumR = $sumG = $sumB = 0;
+    foreach ($edgeSamples as $ec) {
+        $sumR += ($ec >> 16) & 0xFF;
+        $sumG += ($ec >> 8)  & 0xFF;
+        $sumB += $ec         & 0xFF;
+    }
+    $n    = count($edgeSamples);
+    $bgR  = (int)($sumR / $n);
+    $bgG  = (int)($sumG / $n);
+    $bgB  = (int)($sumB / $n);
+    $tol2 = 1225; // tolerancia euclidea = 35
+
+    // Imagen destino: copia de src; los píxeles de fondo se pintarán de blanco
+    $dst   = imagecreatetruecolor($w, $h);
+    imagecopy($dst, $src, 0, 0, 0, 0, $w, $h);
+    $white = imagecolorallocate($dst, 255, 255, 255);
+
+    $visited = [];
+    $queue   = new SplQueue();
+    $dirs    = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+    // Semillas: perímetro completo
+    for ($x = 0; $x < $w; $x++) {
+        foreach ([0, $h - 1] as $y) {
+            $key = $y * $w + $x;
+            if (!isset($visited[$key])) {
+                $visited[$key] = true;
+                $queue->enqueue([$x, $y]);
+            }
+        }
+    }
+    for ($y = 1; $y < $h - 1; $y++) {
+        foreach ([0, $w - 1] as $x) {
+            $key = $y * $w + $x;
+            if (!isset($visited[$key])) {
+                $visited[$key] = true;
+                $queue->enqueue([$x, $y]);
+            }
         }
     }
 
-    error_log('[google-ai] No se encontró imagen en predictions: ' . $response);
-    return [
-        'success' => false,
-        'error'   => 'Vertex AI Imagen no devolvió imagen procesada',
-        'detail'  => substr($response, 0, 500),
-    ];
+    while (!$queue->isEmpty()) {
+        list($x, $y) = $queue->dequeue();
+        $c  = imagecolorat($src, $x, $y);
+        $r  = ($c >> 16) & 0xFF;
+        $g  = ($c >> 8)  & 0xFF;
+        $b  = $c         & 0xFF;
+        $d2 = ($r - $bgR) * ($r - $bgR)
+            + ($g - $bgG) * ($g - $bgG)
+            + ($b - $bgB) * ($b - $bgB);
+        // Píxel de fondo (similar al borde) o letterbox negro del modelo
+        $isBackground = $d2 <= $tol2 || ($r < 30 && $g < 30 && $b < 30);
+        if ($isBackground) {
+            imagesetpixel($dst, $x, $y, $white);
+            foreach ($dirs as $d) {
+                $nx = $x + $d[0];
+                $ny = $y + $d[1];
+                if ($nx >= 0 && $nx < $w && $ny >= 0 && $ny < $h) {
+                    $nk = $ny * $w + $nx;
+                    if (!isset($visited[$nk])) {
+                        $visited[$nk] = true;
+                        $queue->enqueue([$nx, $ny]);
+                    }
+                }
+            }
+        }
+    }
+    unset($visited, $queue);
+
+    ob_start();
+    imagepng($dst);
+    $result = ob_get_clean();
+    imagedestroy($src);
+    imagedestroy($dst);
+
+    return ($result !== false && $result !== '') ? $result : false;
 }
 
 /**
