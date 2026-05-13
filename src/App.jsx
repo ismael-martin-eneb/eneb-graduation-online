@@ -127,7 +127,7 @@ function App() {
         {/* <button className="iconbtn" aria-label="Menú">
           <window.IconList size={28} color="#fff" />
         </button> */}
-        <div className="brand">ENEB</div>
+        <div className="brand"><img src="https://eneb.es/wp-content/uploads/2021/01/eneb-logo.png" alt="ENEB"></img></div>
         <label className="search">
           <window.IconSearch size={18} color="#fff" />
           <input
