@@ -9,7 +9,7 @@
  * de la extensión. Ej.: ENEB_EXPERIENCE_Rev._Simon_Robert_Wake_20931.jpg → 20931
  *
  * URL de uso:
- *   POST https://tudominio.com/api/webhook-foto.php?token=TU_TOKEN_SECRETO
+ *   POST https://dev-graduados.eneb.es/api/webhook-foto.php?token=TU_TOKEN_SECRETO
  *
  * Body (JSON o form-encoded):
  *   photo_resource_id  — Resource ID de Zoho WorkDrive

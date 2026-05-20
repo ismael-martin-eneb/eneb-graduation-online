@@ -538,16 +538,38 @@ function processImageWithGoogleAI(string $imageData, string $mimeType): array
         'Clean plain white studio background. Sharp, well illuminated high quality professional portrait photography. ' .
         'Preserve exactly the person\'s face, facial features, eye shape, nose, lips, skin tone, hairstyle and hair color. The face must remain identical to the original.';
 
+    // Referencia de sujeto (la persona a transformar)
+    $referenceImages = [[
+        'referenceType'      => 'REFERENCE_TYPE_SUBJECT',
+        'referenceId'        => 1,
+        'referenceImage'     => ['bytesBase64Encoded' => base64_encode($workingImage)],
+        'subjectImageConfig' => ['subjectType' => 'SUBJECT_TYPE_PERSON'],
+    ]];
+
+    // Imágenes de estilo desde /images/: el modelo generará un resultado
+    // lo más parecido posible visualmente a estos ejemplos de resultado final.
+    $imagesDir = __DIR__ . '/../images';
+    if (is_dir($imagesDir)) {
+        $files = glob($imagesDir . '/*.{jpg,jpeg,png,gif}', GLOB_BRACE);
+        foreach ($files as $idx => $file) {
+            if (is_file($file) && $idx < 4) { // Máximo 4 imágenes de estilo
+                $styleData = file_get_contents($file);
+                if ($styleData !== false && $styleData !== '') {
+                    $referenceImages[] = [
+                        'referenceType'    => 'REFERENCE_TYPE_STYLE',
+                        'referenceId'      => $idx + 2,
+                        'referenceImage'   => ['bytesBase64Encoded' => base64_encode($styleData)],
+                        'styleImageConfig' => ['styleDescription' => ''],
+                    ];
+                }
+            }
+        }
+    }
+
     $togsBody = json_encode([
         'instances' => [[
-            'referenceImages' => [[
-                'referenceType'      => 'REFERENCE_TYPE_SUBJECT',
-                'referenceId'        => 1,
-                'referenceImage'     => ['bytesBase64Encoded' => base64_encode($workingImage)],
-                'subjectImageConfig' => ['subjectType' => 'SUBJECT_TYPE_PERSON'],
-            ]],
+            'referenceImages' => $referenceImages,
             'prompt'     => $graduationPrompt,
-            'editConfig' => ['editMode' => 'product-image'],
         ]],
         'parameters' => [
             'sampleCount'      => 1,
@@ -580,6 +602,11 @@ function processImageWithGoogleAI(string $imageData, string $mimeType): array
  */
 function _vertexPredict(string $url, string $jsonBody, string $token): array
 {
+    // Debug: log la estructura de la petición (sin los datos base64)
+    $debugBody = preg_replace('/"bytesBase64Encoded":"[A-Za-z0-9+\/=]{20,}"/', '"bytesBase64Encoded":"[BASE64]"', $jsonBody);
+    file_put_contents('/tmp/vertex_last_request.json', $debugBody);
+    error_log('[google-ai] Request → ' . $debugBody);
+
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL,            $url);
     curl_setopt($ch, CURLOPT_POST,           true);

@@ -23,6 +23,3 @@
 
 # No listar el directorio
 Options -Indexes
-
-# Evitar que PHP muestre errores en pantalla
-php_flag display_errors Off

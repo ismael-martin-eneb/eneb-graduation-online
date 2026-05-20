@@ -3,7 +3,7 @@
  * ENEB Graduación Online — Webhook receptor de Zoho Forms
  *
  * URL de uso en Zoho Forms:
- *   https://tudominio.com/api/webhook-zoho.php?token=TU_TOKEN_SECRETO
+ *   https://dev-graduados.eneb.es/api/webhook-zoho.php?token=TU_TOKEN_SECRETO
  *
  * Zoho Forms envía un POST con Content-Type application/json o
  * application/x-www-form-urlencoded según la configuración del formulario.
