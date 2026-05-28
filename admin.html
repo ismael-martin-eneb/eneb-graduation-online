@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ENEB · Admin — Fotos de Graduados</title>
 
+  <link rel="icon" href="images/favicon/favicon-32x32.png" sizes="32x32" type="image/png" />
+  <link rel="icon" href="images/favicon/favicon-192x192.png" sizes="192x192" type="image/png" />
+  <link rel="apple-touch-icon" href="images/favicon/favicon-180x180.png" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -694,7 +698,7 @@
     <div class="option-row">
       <input type="checkbox" id="opt-ai" />
       <div class="opt-desc">
-        <strong>Procesado con IA</strong>
+        <strong>Procesado con IA (EXPERIMENTAL)</strong>
         <span>Elimina el fondo y genera la foto con toga académica (tarda unos segundos)</span>
       </div>
     </div>
@@ -1184,7 +1188,7 @@ function openModal(leadId, leadName, preselectedFile) {
 
   document.getElementById('modal-grad-name').textContent = leadName;
   document.getElementById('modal-file-name').textContent = selectedFile ? selectedFile.name : '';
-  document.getElementById('opt-ai').checked = true;
+  document.getElementById('opt-ai').checked = false;
   confirmBtn.disabled = !selectedFile;
 
   modal.classList.add('open');
