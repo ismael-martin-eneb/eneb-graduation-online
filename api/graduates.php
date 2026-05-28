@@ -120,7 +120,7 @@ try {
     foreach ($rows as $row) {
         $rawPais  = $row['pais'] !== null ? strtoupper(trim((string) $row['pais'])) : '';
         // Se devuelve el código ISO directamente; el frontend lo traduce con i18n.
-        $country  = ($rawPais !== '') ? $rawPais : 'unknown';
+        $country  = ($rawPais !== '') ? $rawPais : null;
         $grade    = $row['grade'] !== null    ? (float) $row['grade']    : 0.0;
         $cumlaude = $row['cumlaude'] !== null ? (int)   $row['cumlaude'] : 0;
         $year     = $row['graduation_date']

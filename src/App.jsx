@@ -84,10 +84,10 @@ function App() {
   const q = query.trim().toLowerCase();
   const filtered = q
     ? graduates.filter(function(g) {
-        const countryName = t("country_" + g.country, g.country);
+        const countryName = g.country ? t("country_" + g.country, g.country) : "";
         return g.name.toLowerCase().includes(q) ||
                countryName.toLowerCase().includes(q) ||
-               g.country.toLowerCase().includes(q);
+               (g.country ? g.country.toLowerCase().includes(q) : false);
       })
     : graduates;
 

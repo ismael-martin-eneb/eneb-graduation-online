@@ -14,10 +14,12 @@ function GraduateCard({ g, onClick }) {
       </div>
       <div className="card__body">
         <div className="card__name">{g.name}</div>
-        <div className="card__country">
-          <window.IconGlobe size={14} color="rgba(255,255,255,0.85)" />
-          <span>{g.country}</span>
-        </div>
+        {g.country && g.country !== "unknown" && g.country !== "" && (
+          <div className="card__country">
+            <window.IconGlobe size={14} color="rgba(255,255,255,0.85)" />
+            <span>{t("country_" + g.country, g.country)}</span>
+          </div>
+        )}
       </div>
       {hasBadges && (
         <div className="card__badges" aria-hidden="true">
