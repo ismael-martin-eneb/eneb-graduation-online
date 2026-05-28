@@ -15,6 +15,32 @@ function sanitizeString($value, int $maxLen = 255): string
     return mb_substr(trim($clean), 0, $maxLen);
 }
 
+/** 
+ * Limpia el parámetro foto_referencia y devuelve solo el resource_id de la foto de Zoho WorkDrive, o null si no es válido.
+ * 
+ */
+function get_resource_id_from_url($url): ?string
+{
+    if (!is_string($url) || trim($url) === '') {
+        return null;
+    }
+
+    $url = trim($url);
+
+    // Cualquier ruta bajo workdrive.zoho.eu o workdrive.zoho.com
+    // Ej: /file/{id}, /home/files/{id}, /writer/open/{id}, etc.
+    if (preg_match('/workdrive\.zoho\.(?:eu|com)\/(?:[^?#\/]+\/)*([a-zA-Z0-9_-]{10,})/', $url, $matches)) {
+        return $matches[1];
+    }
+
+    // Si no parece una URL pero tiene el aspecto de un resource_id directamente
+    if (preg_match('/^[a-zA-Z0-9_-]{10,}$/', $url)) {
+        return $url;
+    }
+
+    return null;
+}
+
 /**
  * Prepara la fecha recibida por el formulario en formato DD-Mes-AAAA HH:MM:SS y la convierte a timestamp Unix. * Si no se puede parsear, devuelve 0.
  *
@@ -212,13 +238,13 @@ function getMoodleEmbajador(string $idAlumno, string $zohoNombre, float $minScor
  * @return string  Access token listo para usar en la cabecera Authorization.
  * @throws RuntimeException si no se puede renovar el token.
  */
-function getZohoWorkDriveToken(): string
+function getZohoWorkDriveToken(bool $forceRefresh = false): string
 {
     $cacheFile = __DIR__ . '/zoho_token_cache.json';
     $margin    = 120; // renovar 2 min antes de que caduque
 
-    // 1. Leer caché
-    if (file_exists($cacheFile)) {
+    // 1. Leer caché (se omite si se pide refresco forzado)
+    if (!$forceRefresh && file_exists($cacheFile)) {
         $cache = json_decode(file_get_contents($cacheFile), true);
         if (
             is_array($cache)

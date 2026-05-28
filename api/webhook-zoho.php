@@ -114,7 +114,11 @@ if (empty($payload)) {
 
 $nombre       = sanitizeString($payload[ZOHO_FIELD_NOMBRE]    ?? '', 255);
 $id_alumno    = sanitizeString($payload[ZOHO_FIELD_ID_ESTUDIANTE] ?? '', 10);
-//$foto       = sanitizeString($payload[ZOHO_FIELD_FOTO] ?? '', 255);
+$fotoRaw      = $payload[ZOHO_FIELD_FOTO] ?? '';
+$foto         = get_resource_id_from_url($fotoRaw);
+if ($foto === null && $fotoRaw !== '') {
+    error_log('[zoho-webhook] No se pudo extraer resource_id de foto_referencia. Valor recibido: ' . $fotoRaw);
+}
 $frase        = sanitizeString($payload[ZOHO_FIELD_FRASE] ?? '', 255);
 $timecreated  = sanitizeDate($payload[ZOHO_FIELD_TIMECREATED] ?? '');
 
@@ -186,10 +190,11 @@ try {
         
         if ($similarity >= 80) {
             // Actualizar registro existente
-            $updateSql = 'UPDATE ' . DB_TABLE_ZOHO_LEADS . ' SET nombre = :nombre, frase = :frase, timecreated = :timecreated, raw_payload = :raw_payload WHERE id = :id';
+            $updateSql = 'UPDATE ' . DB_TABLE_ZOHO_LEADS . ' SET nombre = :nombre, foto = :foto, frase = :frase, timecreated = :timecreated, raw_payload = :raw_payload WHERE id = :id';
             $updateStmt = $pdo->prepare($updateSql);
             $updateStmt->execute([
                 ':nombre'      => $nombre,
+                ':foto'        => $foto,
                 ':frase'       => $frase,
                 ':timecreated' => $timecreated,
                 ':raw_payload' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
@@ -198,11 +203,12 @@ try {
             $insertedId = $existingRecord['id'];
         } else {
             // Insertar nuevo registro si el nombre no coincide al 80%
-            $sql = 'INSERT INTO ' . DB_TABLE_ZOHO_LEADS . ' (nombre, id_alumno, frase, timecreated, raw_payload) VALUES (:nombre, :id_alumno, :frase, :timecreated, :raw_payload)';
+            $sql = 'INSERT INTO ' . DB_TABLE_ZOHO_LEADS . ' (nombre, id_alumno, foto, frase, timecreated, raw_payload) VALUES (:nombre, :id_alumno, :foto, :frase, :timecreated, :raw_payload)';
             $stmt = $pdo->prepare($sql);
             $stmt->execute([
                 ':nombre'      => $nombre,
                 ':id_alumno'   => $id_alumno,
+                ':foto'        => $foto,
                 ':frase'       => $frase,
                 ':timecreated' => $timecreated,
                 ':raw_payload' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
@@ -211,11 +217,12 @@ try {
         }
     } else {
         // Insertar nuevo registro si no existe
-        $sql = 'INSERT INTO ' . DB_TABLE_ZOHO_LEADS . ' (nombre, id_alumno, frase, timecreated, raw_payload) VALUES (:nombre, :id_alumno, :frase, :timecreated, :raw_payload)';
+        $sql = 'INSERT INTO ' . DB_TABLE_ZOHO_LEADS . ' (nombre, id_alumno, foto, frase, timecreated, raw_payload) VALUES (:nombre, :id_alumno, :foto, :frase, :timecreated, :raw_payload)';
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
             ':nombre'      => $nombre,
             ':id_alumno'   => $id_alumno,
+            ':foto'        => $foto,
             ':frase'       => $frase,
             ':timecreated' => $timecreated,
             ':raw_payload' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
@@ -346,6 +353,80 @@ if (!empty($programas)) {
         }
     } catch (PDOException $e) {
         error_log('[zoho-webhook] DB error al insertar programas/graduados: ' . $e->getMessage());
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 9. Descargar, procesar y subir la foto (si hay resource_id)
+// ---------------------------------------------------------------------------
+
+if ($foto !== null && $foto !== '') {
+    try {
+        $downloadUrl = 'https://download.zoho.eu/v1/workdrive/download/' . rawurlencode($foto);
+
+        $doDownload = function (bool $forceRefresh) use ($downloadUrl): array {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL,            $downloadUrl);
+            curl_setopt($ch, CURLOPT_HTTPGET,        true);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT,        30);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_MAXREDIRS,      5);
+            curl_setopt($ch, CURLOPT_HTTPHEADER,     ['Authorization: Zoho-oauthtoken ' . getZohoWorkDriveToken($forceRefresh)]);
+            if (defined('MOODLE_SSL_VERIFY') && MOODLE_SSL_VERIFY === false) {
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            }
+            $data      = curl_exec($ch);
+            $httpCode  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+            return ['data' => $data, 'httpCode' => $httpCode, 'curlError' => $curlError];
+        };
+
+        // Primer intento con token en caché
+        $dl = $doDownload(false);
+
+        // Si Zoho rechaza el token (401/403), forzar refresco y reintentar
+        if (in_array($dl['httpCode'], [401, 403], true)) {
+            error_log('[zoho-webhook] Token rechazado (HTTP ' . $dl['httpCode'] . '), forzando refresco y reintentando...');
+            $dl = $doDownload(true);
+        }
+
+        if ($dl['curlError'] !== '') {
+            error_log('[zoho-webhook] cURL error al descargar foto resource_id=' . $foto . ': ' . $dl['curlError']);
+        } elseif ($dl['httpCode'] !== 200 || $dl['data'] === false || $dl['data'] === '') {
+            error_log('[zoho-webhook] Error al descargar foto resource_id=' . $foto . ' HTTP=' . $dl['httpCode']);
+        } else {
+            $imageData = $dl['data'];
+
+            // Detectar extensión por MIME
+            $ext = 'jpg';
+            if (function_exists('finfo_open')) {
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                $mime  = (string) finfo_buffer($finfo, $imageData);
+                finfo_close($finfo);
+                if ($mime === 'image/png') {
+                    $ext = 'png';
+                }
+            }
+
+            // Guardar en images/
+            $imagesDir = realpath(__DIR__ . '/../images') . '/';
+            $fileName  = $id_alumno . '.' . $ext;
+            $filePath  = $imagesDir . $fileName;
+
+            if (file_put_contents($filePath, $imageData) === false) {
+                error_log('[zoho-webhook] No se pudo guardar la imagen en ' . $filePath);
+            } else {
+                $fotoUrl = rtrim(REDIRECT_URI, '/') . '/images/' . $fileName;
+                $pdo->prepare('UPDATE ' . DB_TABLE_ZOHO_LEADS . ' SET foto = :foto WHERE id = :id')
+                    ->execute([':foto' => $fotoUrl, ':id' => $insertedId]);
+                error_log('[zoho-webhook] Foto guardada: ' . $fotoUrl);
+            }
+        }
+    } catch (\Throwable $e) {
+        error_log('[zoho-webhook] Excepción en procesamiento de foto: ' . $e->getMessage());
     }
 }
 

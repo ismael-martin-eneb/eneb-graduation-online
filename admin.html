@@ -1,0 +1,1366 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ENEB · Admin — Fotos de Graduados</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Reset & tokens ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --red:    #e41416;
+      --red-dk: #b50f10;
+      --bg:     #0f0f13;
+      --surface:#1a1a22;
+      --border: #2a2a36;
+      --text:   #f0f0f5;
+      --muted:  #8888aa;
+      --ok:     #22c55e;
+      --warn:   #f59e0b;
+      --radius: 12px;
+      --shadow: 0 4px 24px rgba(0,0,0,.45);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Login ───────────────────────────────────────────────── */
+    #login-view {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 48px 40px;
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+
+    .login-card .logo {
+      font-family: 'Poppins', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--red);
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+    }
+
+    .login-card .subtitle {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 36px;
+    }
+
+    .login-card label {
+      display: block;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      margin-bottom: 8px;
+    }
+
+    .login-card input[type="password"] {
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .2s;
+      margin-bottom: 20px;
+    }
+
+    .login-card input[type="password"]:focus {
+      border-color: var(--red);
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 12px 24px;
+      background: var(--red);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background .2s, transform .1s;
+    }
+
+    .btn-primary:hover  { background: var(--red-dk); }
+    .btn-primary:active { transform: scale(.98); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+
+    #login-error {
+      margin-top: 16px;
+      font-size: 13px;
+      color: var(--red);
+      min-height: 18px;
+    }
+
+    /* ── Admin layout ────────────────────────────────────────── */
+    #admin-view { display: none; }
+
+    .admin-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(15,15,19,.9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-brand {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--red);
+      letter-spacing: 1.5px;
+      flex-shrink: 0;
+    }
+
+    .header-brand span {
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 500;
+      margin-left: 8px;
+      opacity: .7;
+    }
+
+    .search-wrap {
+      flex: 1;
+      min-width: 200px;
+      max-width: 420px;
+      position: relative;
+    }
+
+    .search-wrap svg {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    #search-input {
+      width: 100%;
+      padding: 10px 12px 10px 38px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    #search-input:focus { border-color: var(--red); }
+
+    .header-count {
+      font-size: 13px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .btn-logout {
+      margin-left: auto;
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: border-color .2s, color .2s;
+      flex-shrink: 0;
+    }
+    .btn-logout:hover { border-color: var(--text); color: var(--text); }
+
+    /* ── Grid ────────────────────────────────────────────────── */
+    .leads-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 20px;
+      padding: 32px;
+    }
+
+    /* ── Lead card ───────────────────────────────────────────── */
+    .lead-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: border-color .2s, transform .2s;
+    }
+
+    .lead-card:hover { border-color: #444; transform: translateY(-2px); }
+
+    .lead-card.drag-over {
+      border-color: var(--red);
+      background: rgba(228,20,22,.07);
+    }
+
+    /* Photo area */
+    .card-photo {
+      aspect-ratio: 1 / 1;
+      background: var(--bg);
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .card-photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform .3s;
+    }
+
+    .lead-card:hover .card-photo img { transform: scale(1.04); }
+
+    .card-photo .no-photo {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .card-photo .no-photo svg {
+      opacity: .35;
+    }
+
+    /* Overlay de acciones al hacer hover sobre la foto */
+    .card-photo .photo-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      opacity: 0;
+      transition: opacity .25s;
+    }
+
+    .lead-card:hover .photo-overlay,
+    .lead-card.drag-over .photo-overlay { opacity: 1; }
+
+    .photo-overlay button {
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: none;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform .15s;
+    }
+
+    .photo-overlay button:active { transform: scale(.95); }
+
+    .btn-upload-photo  { background: var(--red);  color: #fff; }
+    .btn-edit-lead     { background: rgba(255,255,255,.15); color: #fff; }
+    .btn-delete-photo  { background: rgba(255,255,255,.12); color: #ffaaaa; }
+
+    /* Card info */
+    .card-info {
+      padding: 14px 16px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .card-name {
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.35;
+      color: var(--text);
+    }
+
+    .card-program {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 10px;
+      margin-top: 6px;
+    }
+
+    .meta-id {
+      font-size: 10px;
+      color: var(--muted);
+      background: rgba(255,255,255,.05);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-family: monospace;
+      letter-spacing: .3px;
+    }
+
+    .meta-frase {
+      font-size: 10px;
+      color: var(--muted);
+      font-style: italic;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      line-height: 1.4;
+      margin-top: 2px;
+    }
+
+    /* Status bar */
+    .card-status {
+      padding: 8px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      text-align: center;
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border-top: 1px solid var(--border);
+    }
+
+    .card-status.idle     { color: var(--muted); }
+    .card-status.uploading { color: var(--warn); }
+    .card-status.ok       { color: var(--ok); }
+    .card-status.error    { color: var(--red); }
+
+    /* Progress bar */
+    .card-progress {
+      height: 2px;
+      background: var(--border);
+      overflow: hidden;
+    }
+
+    .card-progress-bar {
+      height: 100%;
+      background: var(--red);
+      width: 0%;
+      transition: width .3s;
+    }
+
+    /* ── Loading / empty ─────────────────────────────────────── */
+    .center-msg {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 24px;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--red);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Options overlay (AI toggle) ─────────────────────────── */
+    .upload-options {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.6);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .upload-options.open { display: flex; }
+
+    .upload-options-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: var(--shadow);
+    }
+
+    .upload-options-card h3 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 16px;
+      margin-bottom: 6px;
+    }
+
+    .upload-options-card .grad-name {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 36px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      margin-bottom: 20px;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag-active { border-color: var(--red); background: rgba(228,20,22,.05); }
+
+    .drop-zone .dz-label {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 10px;
+    }
+
+    .drop-zone .dz-label strong { color: var(--text); }
+
+    .option-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 24px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .option-row input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--red);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .option-row .opt-desc { font-size: 12px; }
+    .option-row .opt-desc strong { display: block; font-size: 13px; margin-bottom: 3px; }
+    .option-row .opt-desc span { color: var(--muted); }
+
+    .options-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn-cancel {
+      flex: 1;
+      padding: 11px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      transition: border-color .2s, color .2s;
+    }
+
+    .btn-cancel:hover { border-color: var(--text); color: var(--text); }
+
+    .btn-confirm {
+      flex: 2;
+      padding: 11px;
+      background: var(--red);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s;
+    }
+
+    .btn-confirm:hover    { background: var(--red-dk); }
+    .btn-confirm:disabled { opacity: .5; cursor: not-allowed; }
+
+    #hidden-file-input { display: none; }
+
+    /* ── Modal edición de lead ──────────────────────────────── */
+    .edit-lead-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.6);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .edit-lead-modal.open { display: flex; }
+
+    .edit-lead-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: var(--shadow);
+    }
+
+    .edit-lead-card h3 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 16px;
+      margin-bottom: 6px;
+    }
+
+    .edit-lead-card .grad-name {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+
+    .field-group {
+      margin-bottom: 18px;
+    }
+
+    .field-group label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .7px;
+      margin-bottom: 7px;
+    }
+
+    .field-group input,
+    .field-group textarea {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    .field-group input:focus,
+    .field-group textarea:focus { border-color: var(--red); }
+
+    .field-group textarea {
+      resize: vertical;
+      min-height: 80px;
+      max-height: 160px;
+    }
+
+    .field-hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 5px;
+    }
+
+    /* ── Responsive ─────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .admin-header { padding: 12px 16px; }
+      .leads-grid   { padding: 16px; gap: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════
+     PANTALLA DE LOGIN
+     ══════════════════════════════════════════════════ -->
+<div id="login-view">
+  <div class="login-card">
+    <div class="logo">ENEB</div>
+    <div class="subtitle">Panel de Administración — Fotos de Graduados</div>
+
+    <form id="login-form">
+      <label for="password-input">Contraseña</label>
+      <input type="password" id="password-input" placeholder="••••••••••" autocomplete="current-password" />
+      <button type="submit" class="btn-primary" id="login-btn">Entrar</button>
+      <p id="login-error"></p>
+    </form>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     PANEL DE ADMINISTRACIÓN
+     ══════════════════════════════════════════════════ -->
+<div id="admin-view">
+
+  <header class="admin-header">
+    <div class="header-brand">
+      ENEB
+      <span>Fotos de Graduados</span>
+    </div>
+
+    <div class="search-wrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input type="search" id="search-input" placeholder="Buscar por nombre…" />
+    </div>
+
+    <span class="header-count" id="header-count"></span>
+
+    <button class="btn-logout" id="btn-logout">Cerrar sesión</button>
+  </header>
+
+  <main>
+    <div id="leads-container"></div>
+  </main>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     MODAL DE OPCIONES DE SUBIDA
+     ══════════════════════════════════════════════════ -->
+<div class="upload-options" id="upload-options-modal">
+  <div class="upload-options-card">
+    <h3>Asignar foto</h3>
+    <p class="grad-name" id="modal-grad-name"></p>
+
+    <div class="drop-zone" id="modal-drop-zone">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+           style="color:#8888aa">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+        <polyline points="21 15 16 10 5 21"></polyline>
+      </svg>
+      <p class="dz-label">
+        <strong>Arrastra una imagen aquí</strong><br>
+        o haz clic para seleccionarla
+      </p>
+      <p id="modal-file-name" style="margin-top:8px;font-size:12px;color:#22c55e;min-height:16px;"></p>
+    </div>
+
+    <div class="option-row">
+      <input type="checkbox" id="opt-ai" />
+      <div class="opt-desc">
+        <strong>Procesado con IA</strong>
+        <span>Elimina el fondo y genera la foto con toga académica (tarda unos segundos)</span>
+      </div>
+    </div>
+
+    <div class="options-actions">
+      <button class="btn-cancel" id="modal-cancel">Cancelar</button>
+      <button class="btn-confirm" id="modal-confirm" disabled>Subir foto</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="hidden-file-input" accept="image/jpeg,image/png,image/webp" />
+
+<!-- ══════════════════════════════════════════════════
+     MODAL DE EDICIÓN DE LEAD
+     ══════════════════════════════════════════════════ -->
+<div class="edit-lead-modal" id="edit-lead-modal">
+  <div class="edit-lead-card">
+    <h3>Editar información</h3>
+    <p class="grad-name" id="edit-grad-name"></p>
+
+    <div class="field-group">
+      <label for="edit-id-alumno">ID de alumno (Moodle)</label>
+      <input type="number" id="edit-id-alumno" min="1" placeholder="Ej: 20931" />
+      <p class="field-hint">Identificador numérico del alumno en Moodle</p>
+    </div>
+
+    <div class="field-group">
+      <label for="edit-frase">Frase representativa</label>
+      <textarea id="edit-frase" placeholder="Frase o cita del graduado…" maxlength="100"></textarea>
+      <p class="field-hint"><span id="edit-frase-count">0</span>/100 caracteres</p>
+    </div>
+
+    <div class="options-actions">
+      <button class="btn-cancel" id="edit-cancel">Cancelar</button>
+      <button class="btn-confirm" id="edit-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════
+   Configuración
+   ════════════════════════════════════════════════════════ */
+var API_BASE   = (window.API_BASE !== undefined) ? window.API_BASE : '';
+var API_URL    = API_BASE + '/api/admin-photos.php';
+var SESSION_KEY = 'eneb_admin_pw';
+
+/* ════════════════════════════════════════════════════════
+   Estado
+   ════════════════════════════════════════════════════════ */
+var allLeads   = [];          // cache completo de leads
+var pendingLeadId   = null;   // lead en proceso de subida
+var pendingLeadName = '';
+var selectedFile    = null;
+
+/* ════════════════════════════════════════════════════════
+   Utilidades
+   ════════════════════════════════════════════════════════ */
+function getPassword() {
+  return sessionStorage.getItem(SESSION_KEY) || '';
+}
+
+function setPassword(pw) {
+  sessionStorage.setItem(SESSION_KEY, pw);
+}
+
+function clearPassword() {
+  sessionStorage.removeItem(SESSION_KEY);
+}
+
+// Codifica una cadena UTF-8 en base64 seguro para cabeceras HTTP (solo ASCII)
+function pwToHeader(pw) {
+  try {
+    // encodeURIComponent → escapa a UTF-8; unescape → convierte a bytes Latin-1; btoa → base64
+    return btoa(unescape(encodeURIComponent(pw)));
+  } catch (e) {
+    return btoa(pw);
+  }
+}
+
+function apiFetch(url, opts) {
+  opts = opts || {};
+  opts.headers = opts.headers || {};
+  opts.headers['X-Admin-Password'] = pwToHeader(getPassword());
+  return fetch(url, opts);
+}
+
+/* ════════════════════════════════════════════════════════
+   Login
+   ════════════════════════════════════════════════════════ */
+var loginForm    = document.getElementById('login-form');
+var loginBtn     = document.getElementById('login-btn');
+var loginError   = document.getElementById('login-error');
+var passwordInput = document.getElementById('password-input');
+
+loginForm.addEventListener('submit', function(e) {
+  e.preventDefault();
+  var pw = passwordInput.value;
+  if (!pw) return;
+  loginBtn.disabled = true;
+  loginBtn.textContent = 'Verificando…';
+  loginError.textContent = '';
+
+  setPassword(pw);
+
+  // Verificar contraseña intentando listar los leads
+  apiFetch(API_URL + '?q=_verify_')
+    .then(function(r) {
+      if (r.status === 401) {
+        clearPassword();
+        loginError.textContent = 'Contraseña incorrecta.';
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Entrar';
+        return null;
+      }
+      return r.json();
+    })
+    .then(function(data) {
+      if (!data) return;
+      showAdminPanel();
+    })
+    .catch(function() {
+      loginError.textContent = 'Error de red. Inténtalo de nuevo.';
+      loginBtn.disabled = false;
+      loginBtn.textContent = 'Entrar';
+    });
+});
+
+/* ════════════════════════════════════════════════════════
+   Mostrar panel
+   ════════════════════════════════════════════════════════ */
+function showAdminPanel() {
+  document.getElementById('login-view').style.display = 'none';
+  document.getElementById('admin-view').style.display = 'block';
+  loadLeads('');
+}
+
+function showLoginView() {
+  clearPassword();
+  document.getElementById('admin-view').style.display = 'none';
+  document.getElementById('login-view').style.display = 'flex';
+  document.getElementById('password-input').value = '';
+  document.getElementById('login-btn').disabled = false;
+  document.getElementById('login-btn').textContent = 'Entrar';
+}
+
+document.getElementById('btn-logout').addEventListener('click', showLoginView);
+
+/* ════════════════════════════════════════════════════════
+   Cargar y renderizar leads
+   ════════════════════════════════════════════════════════ */
+function loadLeads(query) {
+  var container = document.getElementById('leads-container');
+  container.innerHTML = '<div class="center-msg"><div class="spinner"></div><span>Cargando graduados…</span></div>';
+  document.getElementById('header-count').textContent = '';
+
+  apiFetch(API_URL + '?q=' + encodeURIComponent(query))
+    .then(function(r) {
+      if (r.status === 401) { showLoginView(); return null; }
+      return r.json();
+    })
+    .then(function(data) {
+      if (!data) return;
+      allLeads = data.leads || [];
+      renderGrid(allLeads);
+    })
+    .catch(function() {
+      container.innerHTML = '<div class="center-msg"><span>Error al cargar los datos.</span></div>';
+    });
+}
+
+function renderGrid(leads) {
+  var container = document.getElementById('leads-container');
+  var count = document.getElementById('header-count');
+
+  if (leads.length === 0) {
+    container.innerHTML = '<div class="center-msg"><span>No se encontraron graduados.</span></div>';
+    count.textContent = '0 graduados';
+    return;
+  }
+
+  count.textContent = leads.length + ' graduado' + (leads.length !== 1 ? 's' : '');
+
+  var grid = document.createElement('div');
+  grid.className = 'leads-grid';
+
+  leads.forEach(function(lead) {
+    grid.appendChild(buildCard(lead));
+  });
+
+  container.innerHTML = '';
+  container.appendChild(grid);
+}
+
+function buildCard(lead) {
+  var card = document.createElement('div');
+  card.className = 'lead-card';
+  card.dataset.leadId   = lead.id;
+  card.dataset.idAlumno = lead.id_alumno || '';
+  card.dataset.frase    = lead.frase     || '';
+  card.dataset.nombre   = lead.nombre    || '';
+
+  var hasPhoto = !!lead.foto;
+
+  card.innerHTML =
+    '<div class="card-photo">' +
+      (hasPhoto
+        ? '<img src="' + escapeAttr(lead.foto) + '" alt="' + escapeAttr(lead.nombre) + '" loading="lazy" />'
+        : '<div class="no-photo">' +
+            '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">' +
+              '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>' +
+              '<circle cx="8.5" cy="8.5" r="1.5"></circle>' +
+              '<polyline points="21 15 16 10 5 21"></polyline>' +
+            '</svg>' +
+            '<span>Sin foto</span>' +
+          '</div>'
+      ) +
+      '<div class="photo-overlay">' +
+        '<button class="btn-upload-photo" title="Subir foto">&#8593; Subir</button>' +
+        '<button class="btn-edit-lead" title="Editar información">&#9998; Editar</button>' +
+        (hasPhoto ? '<button class="btn-delete-photo" title="Eliminar foto">&#10005;</button>' : '') +
+      '</div>' +
+    '</div>' +
+    '<div class="card-progress"><div class="card-progress-bar"></div></div>' +
+    '<div class="card-info">' +
+      '<div class="card-name">' + escapeHtml(lead.nombre) + '</div>' +
+      (lead.programas ? '<div class="card-program">' + escapeHtml(lead.programas) + '</div>' : '') +
+      '<div class="card-meta">' +
+        '<span class="meta-id">' + (lead.id_alumno ? '# ' + escapeHtml(String(lead.id_alumno)) : 'Sin ID') + '</span>' +
+      '</div>' +
+      (lead.frase ? '<div class="meta-frase">&ldquo;' + escapeHtml(lead.frase) + '&rdquo;</div>' : '') +
+    '</div>' +
+    '<div class="card-status idle">' +
+      (hasPhoto ? '&#10003; Con foto' : 'Sin foto asignada') +
+    '</div>';
+
+  // Drag & drop
+  card.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    card.classList.add('drag-over');
+  });
+  card.addEventListener('dragleave', function() {
+    card.classList.remove('drag-over');
+  });
+  card.addEventListener('drop', function(e) {
+    e.preventDefault();
+    card.classList.remove('drag-over');
+    var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) openModal(lead.id, lead.nombre, file);
+  });
+
+  // Botón subir
+  card.querySelector('.btn-upload-photo').addEventListener('click', function(e) {
+    e.stopPropagation();
+    openModal(lead.id, lead.nombre, null);
+  });
+
+  // Botón editar
+  card.querySelector('.btn-edit-lead').addEventListener('click', function(e) {
+    e.stopPropagation();
+    openEditModal(card);
+  });
+
+  // Botón eliminar foto
+  var delBtn = card.querySelector('.btn-delete-photo');
+  if (delBtn) {
+    delBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (!confirm('¿Eliminar la foto de ' + lead.nombre + '?')) return;
+      deletePhoto(lead.id, card);
+    });
+  }
+
+  return card;
+}
+
+/* ════════════════════════════════════════════════════════
+   Modal de edición de lead
+   ════════════════════════════════════════════════════════ */
+var editModal     = document.getElementById('edit-lead-modal');
+var editIdAlumno  = document.getElementById('edit-id-alumno');
+var editFrase     = document.getElementById('edit-frase');
+var editSaveBtn   = document.getElementById('edit-save');
+var editCancelBtn = document.getElementById('edit-cancel');
+var editingCard   = null;
+
+document.getElementById('edit-frase').addEventListener('input', function() {
+  document.getElementById('edit-frase-count').textContent = this.value.length;
+});
+
+function openEditModal(card) {
+  editingCard = card;
+  document.getElementById('edit-grad-name').textContent = card.dataset.nombre;
+  editIdAlumno.value = card.dataset.idAlumno || '';
+  editFrase.value    = card.dataset.frase    || '';
+  document.getElementById('edit-frase-count').textContent = editFrase.value.length;
+  editSaveBtn.disabled = false;
+  editSaveBtn.textContent = 'Guardar';
+  editModal.classList.add('open');
+  editIdAlumno.focus();
+}
+
+function closeEditModal() {
+  editModal.classList.remove('open');
+  editingCard = null;
+}
+
+editCancelBtn.addEventListener('click', closeEditModal);
+editModal.addEventListener('click', function(e) {
+  if (e.target === editModal) closeEditModal();
+});
+
+editSaveBtn.addEventListener('click', function() {
+  if (!editingCard) return;
+  var card      = editingCard;
+  var leadId    = card.dataset.leadId;
+  var idAlumno  = editIdAlumno.value.trim();
+  var frase     = editFrase.value.trim();
+
+  editSaveBtn.disabled    = true;
+  editSaveBtn.textContent = 'Guardando…';
+
+  var formData = new FormData();
+  formData.append('lead_id',   leadId);
+  formData.append('action',    'update_info');
+  formData.append('id_alumno', idAlumno);
+  formData.append('frase',     frase);
+
+  apiFetch(API_URL, { method: 'POST', body: formData })
+    .then(function(r) { return r.json().then(function(d) { return { status: r.status, data: d }; }); })
+    .then(function(result) {
+      if (result.status === 200 && result.data.success) {
+        // Actualizar dataset del card
+        card.dataset.idAlumno = idAlumno;
+        card.dataset.frase    = frase;
+        // Actualizar meta-id visible
+        var metaId = card.querySelector('.meta-id');
+        if (metaId) metaId.textContent = idAlumno ? '# ' + idAlumno : 'Sin ID';
+        // Actualizar frase visible
+        var cardInfo = card.querySelector('.card-info');
+        var metaFrase = card.querySelector('.meta-frase');
+        if (frase) {
+          if (metaFrase) {
+            metaFrase.innerHTML = '&ldquo;' + escapeHtml(frase) + '&rdquo;';
+          } else if (cardInfo) {
+            var newFrase = document.createElement('div');
+            newFrase.className = 'meta-frase';
+            newFrase.innerHTML = '&ldquo;' + escapeHtml(frase) + '&rdquo;';
+            cardInfo.appendChild(newFrase);
+          }
+        } else if (metaFrase) {
+          metaFrase.remove();
+        }
+        setCardStatus(card, 'ok', '&#10003; Información guardada');
+        setTimeout(function() {
+          var hasPhoto = !!card.querySelector('.card-photo img');
+          setCardStatus(card, 'idle', hasPhoto ? '&#10003; Con foto' : 'Sin foto asignada');
+        }, 3000);
+        closeEditModal();
+      } else {
+        var msg = (result.data && result.data.error) ? result.data.error : 'Error desconocido';
+        editSaveBtn.disabled    = false;
+        editSaveBtn.textContent = 'Guardar';
+        alert('Error al guardar: ' + msg);
+      }
+    })
+    .catch(function() {
+      editSaveBtn.disabled    = false;
+      editSaveBtn.textContent = 'Guardar';
+      alert('Error de red al guardar.');
+    });
+});
+
+/* ════════════════════════════════════════════════════════
+   Búsqueda con debounce
+   ════════════════════════════════════════════════════════ */
+var searchTimeout = null;
+document.getElementById('search-input').addEventListener('input', function() {
+  var q = this.value.trim();
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(function() {
+    loadLeads(q);
+  }, 350);
+});
+
+/* ════════════════════════════════════════════════════════
+   Modal de subida
+   ════════════════════════════════════════════════════════ */
+var modal      = document.getElementById('upload-options-modal');
+var dropZone   = document.getElementById('modal-drop-zone');
+var fileInput  = document.getElementById('hidden-file-input');
+var confirmBtn = document.getElementById('modal-confirm');
+var cancelBtn  = document.getElementById('modal-cancel');
+
+function openModal(leadId, leadName, preselectedFile) {
+  pendingLeadId   = leadId;
+  pendingLeadName = leadName;
+  selectedFile    = preselectedFile || null;
+
+  document.getElementById('modal-grad-name').textContent = leadName;
+  document.getElementById('modal-file-name').textContent = selectedFile ? selectedFile.name : '';
+  document.getElementById('opt-ai').checked = true;
+  confirmBtn.disabled = !selectedFile;
+
+  modal.classList.add('open');
+}
+
+function closeModal() {
+  modal.classList.remove('open');
+  pendingLeadId = null;
+  pendingLeadName = '';
+  selectedFile = null;
+  document.getElementById('modal-file-name').textContent = '';
+  confirmBtn.disabled = true;
+}
+
+cancelBtn.addEventListener('click', closeModal);
+modal.addEventListener('click', function(e) {
+  if (e.target === modal) closeModal();
+});
+
+// Abrir selector de fichero al hacer click en drop zone
+dropZone.addEventListener('click', function() {
+  fileInput.value = '';
+  fileInput.click();
+});
+
+fileInput.addEventListener('change', function() {
+  if (this.files && this.files[0]) {
+    selectedFile = this.files[0];
+    document.getElementById('modal-file-name').textContent = selectedFile.name;
+    confirmBtn.disabled = false;
+  }
+});
+
+// Drag & drop dentro del modal
+dropZone.addEventListener('dragover', function(e) {
+  e.preventDefault();
+  dropZone.classList.add('drag-active');
+});
+dropZone.addEventListener('dragleave', function() {
+  dropZone.classList.remove('drag-active');
+});
+dropZone.addEventListener('drop', function(e) {
+  e.preventDefault();
+  dropZone.classList.remove('drag-active');
+  var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (file) {
+    selectedFile = file;
+    document.getElementById('modal-file-name').textContent = file.name;
+    confirmBtn.disabled = false;
+  }
+});
+
+confirmBtn.addEventListener('click', function() {
+  if (!selectedFile || !pendingLeadId) return;
+  var skipAi = !document.getElementById('opt-ai').checked;
+  // Capturar valores ANTES de closeModal(), que los resetea a null
+  var leadId = pendingLeadId;
+  var file   = selectedFile;
+  closeModal();
+  uploadPhoto(leadId, file, skipAi);
+});
+
+/* ════════════════════════════════════════════════════════
+   Subir foto
+   ════════════════════════════════════════════════════════ */
+function uploadPhoto(leadId, file, skipAi) {
+  var card = document.querySelector('.lead-card[data-lead-id="' + leadId + '"]');
+  if (!card) return;
+
+  setCardStatus(card, 'uploading', skipAi ? 'Subiendo…' : 'Procesando con IA…');
+  animateProgress(card);
+
+  var formData = new FormData();
+  formData.append('lead_id', leadId);
+  formData.append('file', file);
+  formData.append('skip_ai', skipAi ? '1' : '0');
+
+  apiFetch(API_URL, {
+    method: 'POST',
+    body: formData
+  })
+  .then(function(r) {
+    stopProgress(card);
+    return r.json().then(function(data) { return { status: r.status, data: data }; });
+  })
+  .then(function(result) {
+    if (result.status === 200 && result.data.success) {
+      setCardStatus(card, 'ok', '&#10003; Foto actualizada');
+      updateCardPhoto(card, result.data.foto_url);
+      setTimeout(function() { setCardStatus(card, 'idle', '&#10003; Con foto'); }, 3500);
+    } else {
+      var msg = (result.data && result.data.error) ? result.data.error : 'Error desconocido';
+      setCardStatus(card, 'error', '&#10005; ' + msg);
+      setTimeout(function() { setCardStatus(card, 'idle', ''); }, 5000);
+    }
+  })
+  .catch(function(err) {
+    stopProgress(card);
+    setCardStatus(card, 'error', '&#10005; Error de red');
+    setTimeout(function() { setCardStatus(card, 'idle', ''); }, 5000);
+  });
+}
+
+/* ════════════════════════════════════════════════════════
+   Eliminar foto
+   ════════════════════════════════════════════════════════ */
+function deletePhoto(leadId, card) {
+  setCardStatus(card, 'uploading', 'Eliminando…');
+
+  var formData = new FormData();
+  formData.append('lead_id', leadId);
+  formData.append('action', 'delete');
+
+  apiFetch(API_URL, { method: 'POST', body: formData })
+    .then(function(r) { return r.json().then(function(d) { return { status: r.status, data: d }; }); })
+    .then(function(result) {
+      if (result.status === 200 && result.data.success) {
+        setCardStatus(card, 'ok', '&#10003; Foto eliminada');
+        updateCardPhoto(card, null);
+        setTimeout(function() { setCardStatus(card, 'idle', 'Sin foto asignada'); }, 3000);
+      } else {
+        setCardStatus(card, 'error', '&#10005; ' + ((result.data && result.data.error) || 'Error'));
+        setTimeout(function() { setCardStatus(card, 'idle', ''); }, 5000);
+      }
+    })
+    .catch(function() {
+      setCardStatus(card, 'error', '&#10005; Error de red');
+      setTimeout(function() { setCardStatus(card, 'idle', ''); }, 5000);
+    });
+}
+
+/* ════════════════════════════════════════════════════════
+   Helpers de UI
+   ════════════════════════════════════════════════════════ */
+function setCardStatus(card, type, msg) {
+  var el = card.querySelector('.card-status');
+  if (!el) return;
+  el.className = 'card-status ' + type;
+  el.innerHTML = msg;
+}
+
+function updateCardPhoto(card, url) {
+  var photoArea = card.querySelector('.card-photo');
+  var overlay = card.querySelector('.photo-overlay');
+  if (!photoArea) return;
+
+  if (url) {
+    var img = photoArea.querySelector('img');
+    if (img) {
+      // Forzar recarga con cache-buster
+      img.src = url + '?t=' + Date.now();
+    } else {
+      var newImg = document.createElement('img');
+      newImg.src = url + '?t=' + Date.now();
+      newImg.alt = '';
+      newImg.loading = 'lazy';
+      var nophoto = photoArea.querySelector('.no-photo');
+      if (nophoto) nophoto.remove();
+      photoArea.insertBefore(newImg, overlay);
+    }
+    // Mostrar botón eliminar si no existe
+    if (overlay && !overlay.querySelector('.btn-delete-photo')) {
+      var delBtn = document.createElement('button');
+      delBtn.className = 'btn-delete-photo';
+      delBtn.title = 'Eliminar foto';
+      delBtn.innerHTML = '&#10005;';
+      delBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var leadId = card.dataset.leadId;
+        if (!confirm('¿Eliminar la foto de este graduado?')) return;
+        deletePhoto(leadId, card);
+      });
+      overlay.appendChild(delBtn);
+    }
+  } else {
+    // Sin foto
+    var oldImg = photoArea.querySelector('img');
+    if (oldImg) oldImg.remove();
+    if (!photoArea.querySelector('.no-photo')) {
+      var nophoto = document.createElement('div');
+      nophoto.className = 'no-photo';
+      nophoto.innerHTML =
+        '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">' +
+        '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>' +
+        '<circle cx="8.5" cy="8.5" r="1.5"></circle>' +
+        '<polyline points="21 15 16 10 5 21"></polyline>' +
+        '</svg><span>Sin foto</span>';
+      photoArea.insertBefore(nophoto, overlay);
+    }
+    // Eliminar botón de quitar
+    if (overlay) {
+      var delBtn = overlay.querySelector('.btn-delete-photo');
+      if (delBtn) delBtn.remove();
+    }
+  }
+}
+
+var progressTimers = {};
+
+function animateProgress(card) {
+  var bar = card.querySelector('.card-progress-bar');
+  if (!bar) return;
+  bar.style.width = '0%';
+  var start = Date.now();
+  var duration = 25000; // animación suave de ~25s (la IA puede tardar)
+  var id = setInterval(function() {
+    var elapsed = Date.now() - start;
+    var pct = Math.min(90, (elapsed / duration) * 90);
+    bar.style.width = pct + '%';
+  }, 200);
+  progressTimers[card.dataset.leadId] = { id: id, bar: bar };
+}
+
+function stopProgress(card) {
+  var leadId = card.dataset.leadId;
+  if (progressTimers[leadId]) {
+    clearInterval(progressTimers[leadId].id);
+    var bar = progressTimers[leadId].bar;
+    bar.style.width = '100%';
+    setTimeout(function() { bar.style.width = '0%'; }, 600);
+    delete progressTimers[leadId];
+  }
+}
+
+function shortenProgram(name) {
+  if (!name) return '';
+  if (name.length <= 38) return name;
+  return name.substring(0, 36) + '…';
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function escapeAttr(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/* ════════════════════════════════════════════════════════
+   Inicio: comprobar si ya hay sesión guardada
+   ════════════════════════════════════════════════════════ */
+(function() {
+  var saved = getPassword();
+  if (saved) {
+    setPassword(saved);
+    apiFetch(API_URL + '?q=_init_')
+      .then(function(r) {
+        if (r.status === 401) { showLoginView(); return; }
+        return r.json().then(function() { showAdminPanel(); });
+      })
+      .catch(function() { /* mostrar login normalmente */ });
+  }
+})();
+</script>
+
+</body>
+</html>
