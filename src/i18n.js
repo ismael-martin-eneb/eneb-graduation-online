@@ -47,6 +47,15 @@ window.TRANSLATIONS = {
     country_IT: "Italia",        country_GB: "Reino Unido",    country_NL: "Países Bajos",
     country_BE: "Bélgica",       country_CH: "Suiza",          country_AT: "Austria",
     country_PL: "Polonia",       country_RO: "Rumanía",        country_TR: "Turquía",
+    country_JM: "Jamaica",       country_PH: "Filipinas",      country_MY: "Malasia",
+    country_MC: "Mónaco",        country_RU: "Rusia",          country_UA: "Ucrania",
+    country_KZ: "Kazajistán",    country_NG: "Nigeria",        country_ZA: "Sudáfrica",
+    country_CN: "China",         country_JP: "Japón",          country_IN: "India",
+    country_KR: "Corea del Sur", country_AU: "Australia",      country_NZ: "Nueva Zelanda",
+    country_CA: "Canadá",        country_SE: "Suecia",         country_NO: "Noruega",
+    country_DK: "Dinamarca",     country_FI: "Finlandia",      country_IE: "Irlanda",
+    country_GR: "Grecia",        country_CZ: "Chequia",        country_SK: "Eslovaquia",
+    country_HU: "Hungría",       country_HR: "Croacia",        country_RS: "Serbia",
   },
   en: {
     searchPlaceholder: "Find me…",
@@ -92,6 +101,15 @@ window.TRANSLATIONS = {
     country_IT: "Italy",         country_GB: "United Kingdom", country_NL: "Netherlands",
     country_BE: "Belgium",       country_CH: "Switzerland",    country_AT: "Austria",
     country_PL: "Poland",        country_RO: "Romania",        country_TR: "Turkey",
+    country_JM: "Jamaica",       country_PH: "Philippines",    country_MY: "Malaysia",
+    country_MC: "Monaco",        country_RU: "Russia",         country_UA: "Ukraine",
+    country_KZ: "Kazakhstan",    country_NG: "Nigeria",        country_ZA: "South Africa",
+    country_CN: "China",         country_JP: "Japan",          country_IN: "India",
+    country_KR: "South Korea",   country_AU: "Australia",      country_NZ: "New Zealand",
+    country_CA: "Canada",        country_SE: "Sweden",         country_NO: "Norway",
+    country_DK: "Denmark",       country_FI: "Finland",        country_IE: "Ireland",
+    country_GR: "Greece",        country_CZ: "Czechia",        country_SK: "Slovakia",
+    country_HU: "Hungary",       country_HR: "Croatia",        country_RS: "Serbia",
   },
   pt: {
     searchPlaceholder: "Encontrar-me…",
@@ -137,6 +155,15 @@ window.TRANSLATIONS = {
     country_IT: "Itália",        country_GB: "Reino Unido",    country_NL: "Países Baixos",
     country_BE: "Bélgica",       country_CH: "Suíça",          country_AT: "Áustria",
     country_PL: "Polônia",       country_RO: "Romênia",        country_TR: "Turquia",
+    country_JM: "Jamaica",       country_PH: "Filipinas",      country_MY: "Malásia",
+    country_MC: "Mónaco",        country_RU: "Rússia",         country_UA: "Ucrânia",
+    country_KZ: "Cazaquistão",   country_NG: "Nigéria",        country_ZA: "África do Sul",
+    country_CN: "China",         country_JP: "Japão",          country_IN: "Índia",
+    country_KR: "Coreia do Sul", country_AU: "Austrália",      country_NZ: "Nova Zelândia",
+    country_CA: "Canadá",        country_SE: "Suécia",         country_NO: "Noruega",
+    country_DK: "Dinamarca",     country_FI: "Finlândia",      country_IE: "Irlanda",
+    country_GR: "Grécia",        country_CZ: "Chéquia",        country_SK: "Eslováquia",
+    country_HU: "Hungria",       country_HR: "Croácia",        country_RS: "Sérvia",
   },
 };
 
@@ -152,5 +179,33 @@ window.useT = function () {
     // Fallback al español si la clave existe allí
     if (window.TRANSLATIONS["es"][key] !== undefined) return window.TRANSLATIONS["es"][key];
     return fallback !== undefined ? fallback : key;
+  };
+};
+
+// Hook para resolver nombres de país:
+// 1. Intl.DisplayNames (cubre los 249 códigos ISO en cualquier idioma del navegador)
+// 2. Traducciones hardcoded como fallback para navegadores sin soporte
+// 3. El propio código ISO como último recurso
+window.useCountryName = function () {
+  var lang = React.useContext(window.LangContext);
+  return function (code) {
+    if (!code || code === 'unknown' || code.trim() === '') return '';
+    var upper = code.trim().toUpperCase();
+    // 1. Intl.DisplayNames — cobertura completa y automática
+    if (typeof Intl !== 'undefined' && Intl.DisplayNames) {
+      try {
+        var dn = new Intl.DisplayNames([lang, 'es'], { type: 'region' });
+        var resolved = dn.of(upper);
+        // Intl devuelve el propio código si no lo reconoce; ignoramos ese caso
+        if (resolved && resolved !== upper) return resolved;
+      } catch (e) {}
+    }
+    // 2. Traducciones hardcoded
+    var dict = window.TRANSLATIONS[lang] || window.TRANSLATIONS['es'];
+    var key  = 'country_' + upper;
+    if (dict[key]) return dict[key];
+    if (window.TRANSLATIONS['es'][key]) return window.TRANSLATIONS['es'][key];
+    // 3. Código ISO como último recurso
+    return upper;
   };
 };

@@ -84,9 +84,25 @@ function App() {
   const q = query.trim().toLowerCase();
   const filtered = q
     ? graduates.filter(function(g) {
-        const countryName = g.country ? t("country_" + g.country, g.country) : "";
+        // Resolver nombre del país con Intl.DisplayNames para que la búsqueda
+        // funcione por nombre localizado ("Jamaica", "Philippines"…) o por código ("JM")
+        var resolvedCountry = "";
+        if (g.country && g.country !== "unknown") {
+          var upper = g.country.toUpperCase();
+          try {
+            if (typeof Intl !== "undefined" && Intl.DisplayNames) {
+              var dn = new Intl.DisplayNames([lang, "es"], { type: "region" });
+              var r = dn.of(upper);
+              resolvedCountry = (r && r !== upper) ? r : "";
+            }
+          } catch (_) {}
+          if (!resolvedCountry) {
+            var dict = window.TRANSLATIONS[lang] || window.TRANSLATIONS["es"];
+            resolvedCountry = dict["country_" + upper] || window.TRANSLATIONS["es"]["country_" + upper] || upper;
+          }
+        }
         return g.name.toLowerCase().includes(q) ||
-               countryName.toLowerCase().includes(q) ||
+               resolvedCountry.toLowerCase().includes(q) ||
                (g.country ? g.country.toLowerCase().includes(q) : false);
       })
     : graduates;

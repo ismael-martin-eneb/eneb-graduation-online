@@ -1,6 +1,7 @@
 // Tarjeta compacta del alumno (la que aparece en las filas)
 function GraduateCard({ g, onClick }) {
   const t = window.useT();
+  const countryName = window.useCountryName();
   const hasBadges = g.badges && g.badges.length > 0;
   return (
     <button
@@ -17,7 +18,7 @@ function GraduateCard({ g, onClick }) {
         {g.country && g.country !== "unknown" && g.country !== "" && (
           <div className="card__country">
             <window.IconGlobe size={14} color="rgba(255,255,255,0.85)" />
-            <span>{t("country_" + g.country, g.country)}</span>
+            <span>{countryName(g.country)}</span>
           </div>
         )}
       </div>

@@ -80,6 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             zl.id_alumno                                                       AS id_alumno,
             zl.foto                                                            AS foto,
             zl.frase                                                           AS frase,
+            zl.pais                                                            AS pais,
             GROUP_CONCAT(ep.name ORDER BY ep.id SEPARATOR \' · \')            AS programas
         FROM ' . DB_TABLE_ZOHO_LEADS . ' zl
         LEFT JOIN ' . DB_TABLE_GRADUADOS . ' eg ON eg.id_alumno = zl.id
@@ -93,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $params[':q'] = '%' . $search . '%';
     }
 
-    $sql .= ' GROUP BY zl.id, zl.nombre, zl.id_alumno, zl.foto, zl.frase ORDER BY zl.nombre';
+    $sql .= ' GROUP BY zl.id, zl.nombre, zl.id_alumno, zl.foto, zl.frase, zl.pais ORDER BY zl.nombre';
 
     try {
         $stmt = $pdo->prepare($sql);
@@ -170,6 +171,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $updates[]        = 'frase = :frase';
             $params[':frase'] = $fraseVal;
+        }
+
+        // pais: código ISO 3166-1 alpha-2, nullable (columna VARCHAR(2) YES)
+        if (array_key_exists('pais', $_POST)) {
+            $paisVal = strtoupper(trim($_POST['pais']));
+            if ($paisVal === '') {
+                $updates[]       = 'pais = NULL';
+            } elseif (!preg_match('/^[A-Z]{2}$/', $paisVal)) {
+                http_response_code(422);
+                exit(json_encode(['error' => 'pais debe ser un código ISO de 2 letras (ej: ES)']));
+            } else {
+                $updates[]       = 'pais = :pais';
+                $params[':pais'] = $paisVal;
+            }
         }
 
         if (!empty($updates)) {

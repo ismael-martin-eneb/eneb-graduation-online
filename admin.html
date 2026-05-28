@@ -728,6 +728,13 @@
       <p class="field-hint"><span id="edit-frase-count">0</span>/100 caracteres</p>
     </div>
 
+    <div class="field-group">
+      <label for="edit-pais">País</label>
+      <input type="text" id="edit-pais" list="pais-datalist" placeholder="Busca por nombre o código (ej: ES)" autocomplete="off" />
+      <datalist id="pais-datalist"></datalist>
+      <p class="field-hint">Código ISO 3166-1 — escribe el nombre o el código del país</p>
+    </div>
+
     <div class="options-actions">
       <button class="btn-cancel" id="edit-cancel">Cancelar</button>
       <button class="btn-confirm" id="edit-save">Guardar</button>
@@ -896,6 +903,7 @@ function buildCard(lead) {
   card.dataset.leadId   = lead.id;
   card.dataset.idAlumno = lead.id_alumno || '';
   card.dataset.frase    = lead.frase     || '';
+  card.dataset.pais     = lead.pais      || '';
   card.dataset.nombre   = lead.nombre    || '';
 
   var hasPhoto = !!lead.foto;
@@ -925,6 +933,7 @@ function buildCard(lead) {
       (lead.programas ? '<div class="card-program">' + escapeHtml(lead.programas) + '</div>' : '') +
       '<div class="card-meta">' +
         '<span class="meta-id">' + (lead.id_alumno ? '# ' + escapeHtml(String(lead.id_alumno)) : 'Sin ID') + '</span>' +
+        (lead.pais ? '<span class="meta-id">' + countryFlag(lead.pais) + ' ' + escapeHtml(lead.pais) + '</span>' : '') +
       '</div>' +
       (lead.frase ? '<div class="meta-frase">&ldquo;' + escapeHtml(lead.frase) + '&rdquo;</div>' : '') +
     '</div>' +
@@ -986,11 +995,80 @@ document.getElementById('edit-frase').addEventListener('input', function() {
   document.getElementById('edit-frase-count').textContent = this.value.length;
 });
 
+// Poblar datalist de países al cargar
+(function() {
+  var COUNTRIES = [
+    ['AD','Andorra'],['AE','Emiratos Árabes Unidos'],['AF','Afganistán'],['AG','Antigua y Barbuda'],
+    ['AI','Anguila'],['AL','Albania'],['AM','Armenia'],['AO','Angola'],['AQ','Antártida'],
+    ['AR','Argentina'],['AS','Samoa Americana'],['AT','Austria'],['AU','Australia'],['AW','Aruba'],
+    ['AX','Åland'],['AZ','Azerbaiyán'],['BA','Bosnia y Herzegovina'],['BB','Barbados'],
+    ['BD','Bangladesh'],['BE','Bélgica'],['BF','Burkina Faso'],['BG','Bulgaria'],['BH','Baréin'],
+    ['BI','Burundi'],['BJ','Benín'],['BL','San Bartolomé'],['BM','Bermudas'],['BN','Brunéi'],
+    ['BO','Bolivia'],['BQ','Caribe neerlandés'],['BR','Brasil'],['BS','Bahamas'],['BT','Bután'],
+    ['BW','Botsuana'],['BY','Bielorrusia'],['BZ','Belice'],['CA','Canadá'],['CC','Islas Cocos'],
+    ['CD','Congo (RDC)'],['CF','República Centroafricana'],['CG','Congo'],['CH','Suiza'],
+    ['CI','Costa de Marfil'],['CK','Islas Cook'],['CL','Chile'],['CM','Camerún'],['CN','China'],
+    ['CO','Colombia'],['CR','Costa Rica'],['CU','Cuba'],['CV','Cabo Verde'],['CW','Curazao'],
+    ['CX','Isla de Navidad'],['CY','Chipre'],['CZ','Chequia'],['DE','Alemania'],['DJ','Yibuti'],
+    ['DK','Dinamarca'],['DM','Dominica'],['DO','República Dominicana'],['DZ','Argelia'],
+    ['EC','Ecuador'],['EE','Estonia'],['EG','Egipto'],['EH','Sáhara Occidental'],['ER','Eritrea'],
+    ['ES','España'],['ET','Etiopía'],['FI','Finlandia'],['FJ','Fiyi'],['FK','Islas Malvinas'],
+    ['FM','Micronesia'],['FO','Islas Feroe'],['FR','Francia'],['GA','Gabón'],['GB','Reino Unido'],
+    ['GD','Granada'],['GE','Georgia'],['GF','Guayana Francesa'],['GG','Guernesey'],['GH','Ghana'],
+    ['GI','Gibraltar'],['GL','Groenlandia'],['GM','Gambia'],['GN','Guinea'],['GP','Guadalupe'],
+    ['GQ','Guinea Ecuatorial'],['GR','Grecia'],['GT','Guatemala'],['GU','Guam'],
+    ['GW','Guinea-Bisáu'],['GY','Guyana'],['HK','Hong Kong'],['HN','Honduras'],['HR','Croacia'],
+    ['HT','Haití'],['HU','Hungría'],['ID','Indonesia'],['IE','Irlanda'],['IL','Israel'],
+    ['IM','Isla de Man'],['IN','India'],['IO','Territorio Británico del Océano Índico'],
+    ['IQ','Irak'],['IR','Irán'],['IS','Islandia'],['IT','Italia'],['JE','Jersey'],['JM','Jamaica'],
+    ['JO','Jordania'],['JP','Japón'],['KE','Kenia'],['KG','Kirguistán'],['KH','Camboya'],
+    ['KI','Kiribati'],['KM','Comoras'],['KN','San Cristóbal y Nieves'],['KP','Corea del Norte'],
+    ['KR','Corea del Sur'],['KW','Kuwait'],['KY','Islas Caimán'],['KZ','Kazajistán'],['LA','Laos'],
+    ['LB','Líbano'],['LC','Santa Lucía'],['LI','Liechtenstein'],['LK','Sri Lanka'],['LR','Liberia'],
+    ['LS','Lesoto'],['LT','Lituania'],['LU','Luxemburgo'],['LV','Letonia'],['LY','Libia'],
+    ['MA','Marruecos'],['MC','Mónaco'],['MD','Moldavia'],['ME','Montenegro'],['MF','San Martín (FR)'],
+    ['MG','Madagascar'],['MH','Islas Marshall'],['MK','Macedonia del Norte'],['ML','Malí'],
+    ['MM','Myanmar'],['MN','Mongolia'],['MO','Macao'],['MP','Islas Marianas del Norte'],
+    ['MQ','Martinica'],['MR','Mauritania'],['MS','Montserrat'],['MT','Malta'],['MU','Mauricio'],
+    ['MV','Maldivas'],['MW','Malaui'],['MX','México'],['MY','Malasia'],['MZ','Mozambique'],
+    ['NA','Namibia'],['NC','Nueva Caledonia'],['NE','Níger'],['NF','Isla Norfolk'],['NG','Nigeria'],
+    ['NI','Nicaragua'],['NL','Países Bajos'],['NO','Noruega'],['NP','Nepal'],['NR','Nauru'],
+    ['NU','Niue'],['NZ','Nueva Zelanda'],['OM','Omán'],['PA','Panamá'],['PE','Perú'],
+    ['PF','Polinesia Francesa'],['PG','Papúa Nueva Guinea'],['PH','Filipinas'],['PK','Pakistán'],
+    ['PL','Polonia'],['PM','San Pedro y Miquelón'],['PN','Islas Pitcairn'],['PR','Puerto Rico'],
+    ['PS','Palestina'],['PT','Portugal'],['PW','Palaos'],['PY','Paraguay'],['QA','Catar'],
+    ['RE','Reunión'],['RO','Rumanía'],['RS','Serbia'],['RU','Rusia'],['RW','Ruanda'],
+    ['SA','Arabia Saudita'],['SB','Islas Salomón'],['SC','Seychelles'],['SD','Sudán'],
+    ['SE','Suecia'],['SG','Singapur'],['SH','Santa Elena'],['SI','Eslovenia'],['SK','Eslovaquia'],
+    ['SL','Sierra Leona'],['SM','San Marino'],['SN','Senegal'],['SO','Somalia'],['SR','Surinam'],
+    ['SS','Sudán del Sur'],['ST','Santo Tomé y Príncipe'],['SV','El Salvador'],['SX','Sint Maarten'],
+    ['SY','Siria'],['SZ','Suazilandia'],['TC','Islas Turcas y Caicos'],['TD','Chad'],
+    ['TG','Togo'],['TH','Tailandia'],['TJ','Tayikistán'],['TK','Tokelau'],['TL','Timor Oriental'],
+    ['TM','Turkmenistán'],['TN','Túnez'],['TO','Tonga'],['TR','Turquía'],['TT','Trinidad y Tobago'],
+    ['TV','Tuvalu'],['TW','Taiwán'],['TZ','Tanzania'],['UA','Ucrania'],['UG','Uganda'],
+    ['US','Estados Unidos'],['UY','Uruguay'],['UZ','Uzbekistán'],['VA','Ciudad del Vaticano'],
+    ['VC','San Vicente y las Granadinas'],['VE','Venezuela'],['VG','Islas Vírgenes Británicas'],
+    ['VI','Islas Vírgenes de EE.UU.'],['VN','Vietnam'],['VU','Vanuatu'],['WF','Wallis y Futuna'],
+    ['WS','Samoa'],['XK','Kosovo'],['YE','Yemen'],['YT','Mayotte'],['ZA','Sudáfrica'],
+    ['ZM','Zambia'],['ZW','Zimbabue']
+  ];
+  var dl = document.getElementById('pais-datalist');
+  COUNTRIES.forEach(function(c) {
+    var opt = document.createElement('option');
+    opt.value = c[0] + ' - ' + c[1];
+    dl.appendChild(opt);
+  });
+})();
+
+var editPaisInput = document.getElementById('edit-pais');
+
 function openEditModal(card) {
   editingCard = card;
   document.getElementById('edit-grad-name').textContent = card.dataset.nombre;
   editIdAlumno.value = card.dataset.idAlumno || '';
   editFrase.value    = card.dataset.frase    || '';
+  // Para el país mostramos el código solo; el usuario puede buscar por nombre
+  editPaisInput.value = card.dataset.pais || '';
   document.getElementById('edit-frase-count').textContent = editFrase.value.length;
   editSaveBtn.disabled = false;
   editSaveBtn.textContent = 'Guardar';
@@ -1014,6 +1092,9 @@ editSaveBtn.addEventListener('click', function() {
   var leadId    = card.dataset.leadId;
   var idAlumno  = editIdAlumno.value.trim();
   var frase     = editFrase.value.trim();
+  // El datalist tiene valores tipo "ES - España"; extraemos los 2 primeros chars si aplica
+  var paisRaw   = editPaisInput.value.trim();
+  var pais      = /^[A-Za-z]{2}(\s+-|$)/.test(paisRaw) ? paisRaw.substring(0, 2).toUpperCase() : paisRaw.toUpperCase();
 
   editSaveBtn.disabled    = true;
   editSaveBtn.textContent = 'Guardando…';
@@ -1023,6 +1104,7 @@ editSaveBtn.addEventListener('click', function() {
   formData.append('action',    'update_info');
   formData.append('id_alumno', idAlumno);
   formData.append('frase',     frase);
+  formData.append('pais',      pais);
 
   apiFetch(API_URL, { method: 'POST', body: formData })
     .then(function(r) { return r.json().then(function(d) { return { status: r.status, data: d }; }); })
@@ -1031,9 +1113,14 @@ editSaveBtn.addEventListener('click', function() {
         // Actualizar dataset del card
         card.dataset.idAlumno = idAlumno;
         card.dataset.frase    = frase;
-        // Actualizar meta-id visible
-        var metaId = card.querySelector('.meta-id');
-        if (metaId) metaId.textContent = idAlumno ? '# ' + idAlumno : 'Sin ID';
+        card.dataset.pais     = pais;
+        // Reconstruir badges de meta
+        var cardMeta = card.querySelector('.card-meta');
+        if (cardMeta) {
+          cardMeta.innerHTML =
+            '<span class="meta-id">' + (idAlumno ? '# ' + escapeHtml(idAlumno) : 'Sin ID') + '</span>' +
+            (pais ? '<span class="meta-id">' + countryFlag(pais) + ' ' + escapeHtml(pais) + '</span>' : '');
+        }
         // Actualizar frase visible
         var cardInfo = card.querySelector('.card-info');
         var metaFrase = card.querySelector('.meta-frase');
@@ -1326,6 +1413,14 @@ function shortenProgram(name) {
   if (!name) return '';
   if (name.length <= 38) return name;
   return name.substring(0, 36) + '…';
+}
+
+// Devuelve el emoji de bandera para un código ISO 3166-1 alpha-2 (ej: "ES" → 🇪🇸)
+function countryFlag(code) {
+  if (!code || code.length !== 2) return '';
+  var c = code.toUpperCase();
+  return String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0)) +
+         String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(1));
 }
 
 function escapeHtml(str) {

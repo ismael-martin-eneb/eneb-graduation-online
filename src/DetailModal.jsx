@@ -2,6 +2,7 @@
 function DetailModal({ graduate, program, onClose }) {
   const [copied, setCopied] = React.useState(false);
   const t = window.useT();
+  const countryName = window.useCountryName();
 
   React.useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
@@ -46,7 +47,7 @@ function DetailModal({ graduate, program, onClose }) {
             <window.Avatar size={220} tone="dark" gender={graduate.gender} photo={graduate.photo} />
           </div>
           <div className="modal__hero-text">
-            <div className="modal__kicker">{t("classOf")} {graduate.year}{graduate.country && graduate.country !== "unknown" ? ` · ${t("country_" + graduate.country, graduate.country)}` : ""}</div>
+            <div className="modal__kicker">{t("classOf")} {graduate.year}{graduate.country && graduate.country !== "unknown" ? ` · ${countryName(graduate.country)}` : ""}</div>
             <h2 className="modal__name">{graduate.name}</h2>
             <div className="modal__program">{program.name}</div>
             <div className="modal__honor-row">
