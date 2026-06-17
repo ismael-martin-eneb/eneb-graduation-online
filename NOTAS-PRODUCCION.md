@@ -1,5 +1,8 @@
 # ENEB · Graduación Online — notas para llevarlo a producción
 
+> **Última actualización:** 2026-06-16  
+> **Cambios recientes:** Agregada funcionalidad de carga CSV para alumnos presenciales en pestaña "Presencial" del panel admin.
+
 ## Stack recomendado
 - **Frontend:** Next.js 14 (App Router) desplegado en el subdominio (p. ej. `graduacion.eneb.com`). SSR/ISR para que cada ficha de alumno tenga URL propia indexable y compartible.
 - **Base de datos:** Postgres gestionado (Supabase o Neon). Tablas: `programs`, `graduates`, `badges`, `graduate_badges`.

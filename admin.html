@@ -622,6 +622,280 @@
       .admin-header { padding: 12px 16px; }
       .leads-grid   { padding: 16px; gap: 12px; }
     }
+
+    /* tabs */
+    /* Style the tab */
+    .tab {
+      overflow: hidden;
+      background-color: #f1f1f1;
+    }
+
+    /* Style the buttons that are used to open the tab content */
+    .tab button {
+      background-color: inherit;
+      float: left;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      padding: 14px 16px;
+      transition: 0.3s;
+    }
+
+    /* Change background color of buttons on hover */
+    .tab button:hover {
+      background-color: #ddd;
+    }
+
+    /* Create an active/current tablink class */
+    .tab button.active {
+      background-color: #ccc;
+    }
+
+    /* Style the tab content */
+    .tabcontent {
+      display: none;
+      padding: 6px 12px;
+      border-top: none;
+      animation: fadeEffect 1s; /* Fading effect takes 1 second */
+    } 
+
+    /* Go from zero to full opacity */
+    @keyframes fadeEffect {
+      from {opacity: 0;}
+      to {opacity: 1;}
+    }
+
+    /* Formulario de subida de alumnos presenciales */
+    .csv-card{
+        background:#141621;
+        border:1px solid rgba(255,255,255,.08);
+        border-radius:20px;
+        overflow:hidden;
+        transition:.3s;
+        max-width:380px;
+    }
+
+    .csv-card:hover{
+        transform:translateY(-3px);
+        border-color:rgba(255,255,255,.15);
+    }
+
+    .csv-card-body{
+        padding:30px;
+    }
+
+    .csv-icon{
+        width:80px;
+        height:80px;
+        margin:0 auto 20px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:40px;
+        border:2px dashed rgba(255,255,255,.15);
+        border-radius:16px;
+        color:#8f95c7;
+    }
+
+    .csv-card h3{
+        color:#fff;
+        text-align:center;
+        margin-bottom:12px;
+        font-size:1.5rem;
+        font-weight:700;
+    }
+
+    .csv-description{
+        text-align:left;
+        color:#9aa0c3;
+        margin-bottom:25px;
+        line-height:1.5;
+    }
+
+    .csv-upload{
+        margin-bottom:20px;
+    }
+
+    .csv-upload input[type=file]{
+        width:100%;
+        color:#fff;
+    }
+
+    .btn-upload{
+        width:100%;
+        border:none;
+        background:#ff1e2d;
+        color:#fff;
+        padding:14px;
+        border-radius:12px;
+        font-weight:600;
+        cursor:pointer;
+        transition:.3s;
+        margin-top: 5%;
+    }
+
+    .btn-cancel{
+        width:100%;
+        border:none;
+        background:#fff;
+        color:#ff1e2d;
+        padding:14px;
+        border-radius:12px;
+        font-weight:600;
+        cursor:pointer;
+        transition:.3s;
+    }
+
+    .btn-upload:hover, .btn-cancel:hover{
+        transform:translateY(-2px);
+    }
+
+    /* ── Tabla de presenciales ─────────────────────────────────────────── */
+    .presenciales-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 30px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .presenciales-table thead {
+      background: var(--bg);
+    }
+
+    .presenciales-table thead th {
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .7px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .presenciales-table tbody td {
+      padding: 12px 16px;
+      font-size: 13px;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .presenciales-table tbody tr:hover {
+      background: rgba(228, 20, 22, .03);
+    }
+
+    .presenciales-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .presenciales-table .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .csv-alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-top: 12px;
+    }
+
+    .csv-alert.success {
+      background: rgba(34, 197, 94, .1);
+      color: #22c55e;
+      border: 1px solid rgba(34, 197, 94, .3);
+    }
+
+    .csv-alert.error {
+      background: rgba(239, 68, 68, .1);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, .3);
+    }
+
+    .csv-alert.info {
+      background: rgba(59, 130, 246, .1);
+      color: #3b82f6;
+      border: 1px solid rgba(59, 130, 246, .3);
+    }
+
+    /* Button used to open the contact form - fixed at the bottom of the page */
+.open-button {
+  background-color: #555;
+  color: white;
+  padding: 16px 20px;
+  border: none;
+  cursor: pointer;
+  opacity: 0.8;
+  position: fixed;
+  bottom: 23px;
+  right: 28px;
+  width: 280px;
+}
+
+/* The popup form - hidden by default */
+.form-popup {
+  border-radius: 12px;
+  padding: 20px;
+  display: none;
+  position: fixed;
+  bottom: 0;
+  right: 15px;
+  background-color: rgb(63, 63, 63);
+  z-index: 9;
+}
+
+/* Add styles to the form container */
+.form-container {
+  max-width: 300px;
+  padding: 10px;
+  background-color: white;
+}
+
+/* Full-width input fields */
+.form-container input[type=file]{
+  width: 100%;
+  padding: 15px;
+  margin: 5px 0 22px 0;
+  border: none;
+  background: #f1f1f1;
+}
+
+/* When the inputs get focus, do something */
+.form-container input[type=file]:focus {
+  background-color: #ddd;
+  outline: none;
+}
+
+/* Set a style for the submit/login button */
+.form-container .btn {
+  background-color: #04AA6D;
+  color: white;
+  padding: 16px 20px;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  margin-bottom:10px;
+  opacity: 0.8;
+}
+
+/* Add a red background color to the cancel button */
+.form-container .cancel {
+  background-color: red;
+}
+
+/* Add some hover effects to buttons */
+.form-container .btn:hover, .open-button:hover {
+  opacity: 1;
+}
   </style>
 </head>
 <body>
@@ -667,8 +941,65 @@
     <button class="btn-logout" id="btn-logout">Cerrar sesión</button>
   </header>
 
+  
+
   <main>
-    <div id="leads-container"></div>
+    <div class="tab">
+      <button class="tablinks" onclick="openType(event, 'Online')" id="defaultOpen">Online</button>
+      <button class="tablinks" onclick="openType(event, 'Presencial')">Presencial</button>
+    </div>
+    <div id="Online" class="tabcontent">
+      <div id="leads-container"></div>
+    </div>
+
+    <div id="Presencial" class="tabcontent">
+
+      <button class="open-button" onclick="openForm()">Cargar alumnos desde CSV</button>
+
+      <!-- The form -->
+      <div class="form-popup" id="myForm">
+          <form id="studentCsvForm" enctype="multipart/form-data">
+              <h1>Cargar alumnos desde CSV</h1>
+              <p class="csv-description">
+                  Selecciona un archivo CSV con el formato:
+                  <br>
+                  <strong>nombre, id_alumno, idioma, phone, intolerancias, linkedin, email</strong>
+              </p>
+
+              <label for="student_csv"><b>Archivo</b></label>
+              <input type="file" id="csvFile" name="student_csv" accept=".csv" required>
+
+              <button type="submit" class="btn-upload" id="csv-submit-btn">
+                  Subir y procesar
+              </button>
+              <button type="button" class="btn-cancel" onclick="closeForm()">Cancelar</button>
+          </form>
+      </div>
+
+      <!--<div class="csv-card">
+          <div class="csv-card-body">
+
+              <h3>Cargar alumnos desde CSV</h3>
+
+              <p class="csv-description">
+                  Selecciona un archivo CSV con el formato:
+                  <br>
+                  <strong>nombre, id_alumno, idioma, phone, intolerancias, linkedin, email</strong>
+              </p>
+              <form id="studentCsvForm" enctype="multipart/form-data">
+                  <div class="csv-upload">
+                      <input type="file" id="csvFile" name="student_csv" accept=".csv" required>
+                  </div>
+
+                  <button type="submit" class="btn-upload" id="csv-submit-btn">
+                      Subir y procesar
+                  </button>
+              </form>
+              <div id="csv-status" style="margin-top: 12px; font-size: 12px; display: none;"></div>
+          </div>
+      </div>-->
+      <div id="presencial-container" style="padding: 20px 30px;"></div>
+    </div>
   </main>
 </div>
 
@@ -746,6 +1077,8 @@
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 /* ════════════════════════════════════════════════════════
    Configuración
@@ -1459,7 +1792,404 @@ function escapeAttr(str) {
       .catch(function() { /* mostrar login normalmente */ });
   }
 })();
-</script>
 
+document.getElementById("defaultOpen").click();
+
+/* TABS */
+function openType(evt, cityName) {
+  // Declare all variables
+  var i, tabcontent, tablinks;
+
+  // Get all elements with class="tabcontent" and hide them
+  tabcontent = document.getElementsByClassName("tabcontent");
+  for (i = 0; i < tabcontent.length; i++) {
+    tabcontent[i].style.display = "none";
+  }
+
+  // Get all elements with class="tablinks" and remove the class "active"
+  tablinks = document.getElementsByClassName("tablinks");
+  for (i = 0; i < tablinks.length; i++) {
+    tablinks[i].className = tablinks[i].className.replace(" active", "");
+  }
+
+  // Show the current tab, and add an "active" class to the button that opened the tab
+  document.getElementById(cityName).style.display = "block";
+  evt.currentTarget.className += " active";
+}
+
+// js/csv_handler.js
+
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('studentCsvForm');
+    if (!form) return;
+
+    form.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        
+        const csvFile = document.getElementById('csvFile');
+        const submitBtn = document.getElementById('csv-submit-btn');
+        const statusDiv = document.getElementById('csv-status');
+        
+        if (!csvFile.files || !csvFile.files[0]) {
+            showCsvStatus('Por favor selecciona un archivo CSV', 'error');
+            return;
+        }
+
+        const file = csvFile.files[0];
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Procesando…';
+
+        try {
+            // Leer y parsear el archivo CSV
+            const csvData = await file.text();
+            const students = parseCSV(csvData);
+
+            if (students.length === 0) {
+                showCsvStatus('El archivo CSV está vacío', 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Subir y procesar';
+                return;
+            }
+
+            // Enviar al API
+            const response = await apiFetch(API_BASE + '/api/presenciales-csv.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ students: students })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                showCsvStatus('Error: ' + (result.error || 'Desconocido'), 'error');
+            } else {
+                showCsvStatus(
+                    '✓ Cargados ' + result.inserted + '/' + result.total + ' registros',
+                    result.errors.length === 0 ? 'success' : 'info'
+                );
+                
+                if (result.errors.length > 0) {
+                    console.warn('Errores al procesar CSV:', result.errors);
+                }
+                
+                // Limpiar input y recargar tabla
+                csvFile.value = '';
+                loadPresenciales('');
+            }
+
+        } catch (error) {
+            console.error('Error procesando CSV:', error);
+            showCsvStatus('Error: ' + error.message, 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Subir y procesar';
+        }
+    });
+
+    // Cargar tabla al abrir la pestaña
+    loadPresenciales('');
+});
+
+/**
+ * Parsea un CSV simple: primera línea ignorada (headers), 
+ * resto son datos. Mapea a objetos con keys: nombre, id_alumno, etc.
+ */
+function parseCSV(csvText) {
+    const lines = csvText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    
+    if (lines.length < 1) return [];
+
+    // Headers esperados (primera línea)
+    const headerLine = lines[0];
+    const headers = headerLine.split(',').map(h => h.trim().toLowerCase());
+
+    const students = [];
+    for (let i = 1; i < lines.length; i++) {
+        const values = parseCSVLine(lines[i]);
+        if (values.length === 0) continue;
+
+        const student = {};
+        headers.forEach((header, idx) => {
+            student[header] = values[idx] || '';
+        });
+
+        students.push(student);
+    }
+
+    return students;
+}
+
+/**
+ * Parsea una línea CSV respetando comillas dobles.
+ */
+function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let insideQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+
+        if (char === '"') {
+            if (insideQuotes && line[i + 1] === '"') {
+                current += '"';
+                i++;
+            } else {
+                insideQuotes = !insideQuotes;
+            }
+        } else if (char === ',' && !insideQuotes) {
+            result.push(current.trim());
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+
+    result.push(current.trim());
+    return result;
+}
+
+function showCsvStatus(message, type) {
+    const statusDiv = document.getElementById('csv-status');
+    statusDiv.className = 'csv-alert ' + type;
+    statusDiv.textContent = message;
+    statusDiv.style.display = 'block';
+    
+    // Auto-ocultar después de 8 segundos si es success
+    if (type === 'success') {
+        setTimeout(() => {
+            statusDiv.style.display = 'none';
+        }, 8000);
+    }
+}
+
+/**
+ * Carga y muestra la tabla de presenciales
+ */
+function loadPresenciales(query) {
+    const container = document.getElementById('presencial-container');
+    container.innerHTML = '<div class="center-msg"><div class="spinner"></div><span>Cargando…</span></div>';
+
+    apiFetch(API_BASE + '/api/presenciales-csv.php?q=' + encodeURIComponent(query))
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                renderPresencialesTable(data.data || []);
+            } else {
+                container.innerHTML = '<div class="center-msg" style="color: var(--red);">Error: ' + (data.error || 'Desconocido') + '</div>';
+            }
+        })
+        .catch(err => {
+            console.error('Error cargando presenciales:', err);
+            container.innerHTML = '<div class="center-msg" style="color: var(--red);">Error de red</div>';
+        });
+}
+
+function renderPresencialesTable(presenciales) {
+    const container = document.getElementById('presencial-container');
+
+    if (presenciales.length === 0) {
+        container.innerHTML = '<div class="center-msg">No hay registros. Carga un archivo CSV.</div>';
+        return;
+    }
+
+    let html = '<table class="presenciales-table"><thead><tr>' +
+        '<th>Nombre</th>' +
+        '<th>ID Alumno</th>' +
+        '<th>Idioma</th>' +
+        '<th>Teléfono</th>' +
+        '<th>Intolerancias</th>' +
+        '<th>LinkedIn</th>' +
+        '<th>Email</th>' +
+        '<th style="text-align: center;"><input type="checkbox" id="select-all-presenciales"></th>' +
+        '</tr></thead><tbody>';
+
+    presenciales.forEach((row, index) => {
+        const linkedinLink = row.linkedin
+            ? '<a href="' + escapeAttr(row.linkedin) + '" target="_blank" style="color: var(--red);">Perfil ↗</a>'
+            : '';
+
+        html += '<tr>' +
+            '<td>' + escapeHtml(row.nombre || '') + '</td>' +
+            '<td>' + escapeHtml(row.id_alumno || '') + '</td>' +
+            '<td>' + escapeHtml(row.idioma || '') + '</td>' +
+            '<td>' + escapeHtml(row.phone || '') + '</td>' +
+            '<td>' + escapeHtml(row.intolerancias || '') + '</td>' +
+            '<td>' + linkedinLink + '</td>' +
+            '<td>' + escapeHtml(row.email || '') + '</td>' +
+            '<td style="text-align:center;">' +
+                '<input type="checkbox" class="presencial-checkbox" data-index="' + index + '">' +
+            '</td>' +
+            '</tr>';
+    });
+
+    html += '</tbody></table>';
+
+    // Botón para imprimir PDF de seleccionados
+    html += `
+        <div style="margin-top:15px;">
+            <button id="btn-pdf-seleccionados" class="btn btn-primary">
+                Generar PDF seleccionados
+            </button>
+        </div>
+    `;
+
+    container.innerHTML = html;
+
+    // Evento seleccionar todos
+    document.getElementById('select-all-presenciales').addEventListener('change', function() {
+        document.querySelectorAll('.presencial-checkbox').forEach(cb => {
+            cb.checked = this.checked;
+        });
+    });
+
+    // Evento generar PDF
+    document.getElementById('btn-pdf-seleccionados').addEventListener('click', function() {
+        const seleccionados = [];
+
+        const checkboxes = document.querySelectorAll('.presencial-checkbox');
+
+        checkboxes.forEach(cb => {
+
+            if (cb.checked) {
+
+                const index = Number(cb.dataset.index);
+
+                if (!isNaN(index) && presenciales[index]) {
+                    seleccionados.push(presenciales[index]);
+                }
+            }
+        });
+
+        console.log(seleccionados);
+
+        generarPDFSeleccionados(seleccionados);
+    });
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    } catch {
+        return dateStr;
+    }
+}
+
+async function generarQRDataURL(texto) {
+    return new Promise((resolve, reject) => {
+
+        const contenedor = document.createElement('div');
+        contenedor.style.position = 'absolute';
+        contenedor.style.left = '-9999px';
+
+        document.body.appendChild(contenedor);
+
+        const qr = new QRCode(contenedor, {
+            text: texto,
+            width: 300,
+            height: 300
+        });
+
+        setTimeout(() => {
+            try {
+                const img = contenedor.querySelector('img');
+                const canvas = contenedor.querySelector('canvas');
+
+                let dataUrl = null;
+
+                if (img) {
+                    dataUrl = img.src;
+                } else if (canvas) {
+                    dataUrl = canvas.toDataURL('image/png');
+                }
+
+                document.body.removeChild(contenedor);
+                resolve(dataUrl);
+            } catch (e) {
+                reject(e);
+            }
+        }, 100);
+    });
+}
+
+async function generarPDFSeleccionados(alumnos) {
+
+    if (!alumnos.length) {
+        alert('Debes seleccionar al menos un alumno');
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+
+    for (let i = 0; i < alumnos.length; i++) {
+
+        const alumno = alumnos[i];
+
+        if (i > 0) {
+            pdf.addPage();
+        }
+
+        // Nombre
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(24);
+
+        pdf.text(
+            alumno.nombre || '',
+            105,
+            40,
+            { align: 'center' }
+        );
+
+        // QR
+        if (alumno.linkedin) {
+
+            const qrDataUrl = await generarQRDataURL(alumno.linkedin);
+
+            pdf.addImage(
+                qrDataUrl,
+                'PNG',
+                55,
+                60,
+                100,
+                100
+            );
+
+            pdf.setFontSize(12);
+            pdf.setFont('helvetica', 'normal');
+
+            pdf.text(
+                'Escanea para acceder al perfil de LinkedIn',
+                105,
+                175,
+                { align: 'center' }
+            );
+        } else {
+
+            pdf.setFontSize(14);
+
+            pdf.text(
+                'Sin perfil de LinkedIn',
+                105,
+                120,
+                { align: 'center' }
+            );
+        }
+    }
+
+    pdf.save('alumnos-linkedin.pdf');
+}
+
+function openForm() {
+  document.getElementById("myForm").style.display = "block";
+}
+
+function closeForm() {
+  document.getElementById("myForm").style.display = "none";
+}
+
+</script>
 </body>
 </html>

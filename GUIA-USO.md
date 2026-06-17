@@ -14,6 +14,7 @@
    - [Subir o cambiar la foto de un alumno](#33-subir-o-cambiar-la-foto-de-un-alumno)
    - [Eliminar la foto de un alumno](#34-eliminar-la-foto-de-un-alumno)
    - [Editar información del alumno](#35-editar-información-del-alumno)
+   - [Tab Presencial: carga de alumnos desde CSV](#36-tab-presencial-carga-de-alumnos-desde-csv)
 4. [Flujo automático de datos (webhooks)](#4-flujo-automático-de-datos-webhooks)
    - [Registro de alumno desde Zoho Forms](#41-registro-de-alumno-desde-zoho-forms)
    - [Recepción automática de fotos desde Zoho WorkDrive](#42-recepción-automática-de-fotos-desde-zoho-workdrive)
@@ -172,6 +173,76 @@ La barra de progreso en la parte inferior de la tarjeta indica el estado de la s
 | **País** | Código ISO de 2 letras, ej.: `ES`, `MX`, `CO` (opcional) |
 
 4. Haz clic en **Guardar** para confirmar los cambios.
+
+---
+
+### 3.6 Tab Presencial: carga de alumnos desde CSV
+
+La pestaña **Presencial** permite cargar múltiples alumnos de modo presencial desde un archivo CSV, sin necesidad de que completen el formulario de Zoho Forms.
+
+#### Formato del archivo CSV
+
+El archivo debe tener la siguiente estructura:
+
+```
+nombre,id_alumno,idioma,phone,intolerancias,linkedin,email
+Juan García López,20931,Español,+34612345678,"Sin gluten, Sin lactosa",https://linkedin.com/in/juangarcia,juan.garcia@example.com
+María Rodríguez Pérez,20932,Español,+34698765432,"Sin frutos secos",https://linkedin.com/in/mrodriguez,maria.rodriguez@example.com
+```
+
+**Campos:**
+
+| Campo | Tipo | Requerido | Ejemplo |
+|---|---|---|---|
+| **nombre** | Texto | ✓ Sí | Juan García López |
+| **id_alumno** | Texto/Número | No | 20931 |
+| **idioma** | Texto | No | Español |
+| **phone** | Texto | No | +34612345678 |
+| **intolerancias** | Texto | No | Sin gluten, Sin lactosa |
+| **linkedin** | URL | No | https://linkedin.com/in/juangarcia |
+| **email** | Email | No | juan.garcia@example.com |
+
+**Notas:**
+- El campo **nombre** es obligatorio; sin él, el registro se descartará.
+- Si una celda contiene comas, enciérrala entre comillas dobles: `"Sin gluten, Sin lactosa"`
+- El archivo se puede generar fácilmente desde Excel/Sheets: **Archivo → Descargar → CSV**
+
+#### Cómo cargar el CSV
+
+1. Accede al panel admin (`/admin.html`)
+2. Haz clic en la pestaña **Presencial**
+3. En la tarjeta "Cargar alumnos desde CSV":
+   - Haz clic en el área de subida o arrastra el archivo CSV
+   - Selecciona tu archivo `.csv`
+4. Haz clic en el botón **Subir y procesar**
+
+#### Resultado de la carga
+
+Después de procesar:
+- ✓ **Éxito:** Aparecerá un mensaje indicando cuántos registros se insertaron correctamente (ej: "*Cargados 15/20 registros*")
+- ⚠️ **Advertencias:** Si algún registro tiene errores (ej: email inválido), aparecerá un aviso indicando en qué fila falló
+- La tabla se actualiza automáticamente mostrando todos los presenciales cargados
+
+#### Tabla de presenciales
+
+Después de la carga (o al entrar en la pestaña), aparece una tabla con todos los alumnos presenciales registrados, mostrando:
+
+| Columna | Descripción |
+|---|---|
+| Nombre | Nombre completo del alumno |
+| ID Alumno | Identificador en Moodle |
+| Idioma | Idioma preferido |
+| Teléfono | Número de contacto |
+| Intolerancias | Alergias/intolerancias dietéticas |
+| LinkedIn | Enlace al perfil (abre en nueva ventana) |
+| Email | Correo electrónico |
+| Fecha | Fecha de registro |
+
+**Búsqueda:** Actualmente la tabla muestra todos. Para futuras mejoras se puede agregar un campo de búsqueda por nombre.
+
+#### Archivo de ejemplo
+
+Se incluye un archivo de ejemplo `ejemplo-presenciales.csv` en la raíz del proyecto que puedes usar como referencia.
 
 ---
 

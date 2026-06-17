@@ -1,0 +1,4 @@
+nombre,id_alumno,idioma,phone,intolerancias,linkedin,email
+Juan García López,20931,Español,+34612345678,"Sin gluten, Sin lactosa",https://linkedin.com/in/juangarcia,juan.garcia@example.com
+María Rodríguez Pérez,20932,Español,+34698765432,"Sin frutos secos",https://linkedin.com/in/mrodriguez,maria.rodriguez@example.com
+Carlos Martínez Gómez,20933,Inglés,+34612111222,"Sin huevos",https://linkedin.com/in/cmartinez,carlos.martinez@example.com
