@@ -121,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($students as $idx => $student) {
             try {
                 // Validar y sanitizar campos
-                $nombre = sanitizeString($student['nombre'] ?? '', 120);
+                $nombre = sanitizeName($student['nombre'] ?? '', 120);
                 if (trim($nombre) === '') {
                     $errors[] = "Fila " . ($idx + 1) . ": El nombre es obligatorio";
                     continue;
@@ -132,7 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $phone = sanitizeString($student['phone'] ?? '', 30);
                 $intolerancias = sanitizeString($student['intolerancias'] ?? '', 500);
                 $linkedin = sanitizeString($student['linkedin'] ?? '', 255);
-                $email = sanitizeString($student['email'] ?? '', 120);
+                $email = sanitizeEmail($student['email'] ?? '', 120);
 
                 // Validar email si está presente
                 if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {

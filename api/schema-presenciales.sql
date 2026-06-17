@@ -10,14 +10,14 @@ CREATE TABLE IF NOT EXISTS eneb_presenciales (
   intolerancias VARCHAR(500),
   linkedin VARCHAR(255),
   email VARCHAR(120),
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  
+
   INDEX idx_nombre (nombre),
   INDEX idx_id_alumno (id_alumno),
-  INDEX idx_email (email),
-  INDEX idx_created_at (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  UNIQUE KEY uk_email (email)
+
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
 
 -- Ejemplo de inserción para pruebas:
 -- INSERT INTO eneb_presenciales (nombre, id_alumno, idioma, phone, intolerancias, linkedin, email, created_at)

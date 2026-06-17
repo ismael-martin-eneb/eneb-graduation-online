@@ -15,6 +15,26 @@ function sanitizeString($value, int $maxLen = 255): string
     return mb_substr(trim($clean), 0, $maxLen);
 }
 
+/**
+ * Limpia una cadena de nombre y la devuelve formateada con mayusculas iniciales
+ */
+function sanitizeName($value, int $maxLen = 255): string
+{
+    $clean = sanitizeString($value, $maxLen);
+    $cleaner = str_replace(',', '', $clean);
+    // Convertir a minúsculas y luego capitalizar la primera letra de cada palabra
+    return mb_convert_case($cleaner, MB_CASE_TITLE, "UTF-8");
+}
+
+/**
+ * Función para limpiar las cadenas de email
+ */
+function sanitizeEmail($value, int $maxLen = 255): string
+{
+    $clean = sanitizeString($value, $maxLen);
+    return mb_strtolower(filter_var($clean, FILTER_SANITIZE_EMAIL));
+}
+
 /** 
  * Limpia el parámetro foto_referencia y devuelve solo el resource_id de la foto de Zoho WorkDrive, o null si no es válido.
  * 

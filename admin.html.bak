@@ -518,7 +518,7 @@
       transition: border-color .2s, color .2s;
     }
 
-    .btn-cancel:hover { border-color: var(--text); }
+    .btn-cancel:hover { border-color: var(--text); color: var(--text); }
 
     .btn-confirm {
       flex: 2;
@@ -829,9 +829,8 @@
 
     /* Button used to open the contact form - fixed at the bottom of the page */
 .open-button {
-  background:#ff1e2d;
+  background-color: #555;
   color: white;
-  border-radius:12px;
   padding: 16px 20px;
   border: none;
   cursor: pointer;
@@ -840,7 +839,6 @@
   bottom: 23px;
   right: 28px;
   width: 280px;
-  transition:.3s;
 }
 
 /* The popup form - hidden by default */
@@ -886,7 +884,7 @@
   cursor: pointer;
   width: 100%;
   margin-bottom:10px;
-  opacity: 0.9;
+  opacity: 0.8;
 }
 
 /* Add a red background color to the cancel button */
@@ -897,11 +895,6 @@
 /* Add some hover effects to buttons */
 .form-container .btn:hover, .open-button:hover {
   opacity: 1;
-  transform:translateY(-5px);
-}
-
-#btn-pdf-seleccionados {
-  margin-bottom: 100px;
 }
   </style>
 </head>
@@ -1864,7 +1857,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await apiFetch(API_BASE + '/api/presenciales-csv.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: (function(){ console.log("ESTUDIANTES ENVIADOS AL API:", students); return JSON.stringify({ students: students }); })()
+                body: JSON.stringify({ students: students })
             });
 
             const result = await response.json();
@@ -1903,105 +1896,89 @@ document.addEventListener('DOMContentLoaded', () => {
  * Parsea un CSV simple: primera línea ignorada (headers), 
  * resto son datos. Mapea a objetos con keys: nombre, id_alumno, etc.
  */
-
-/**
- * Parsea una línea CSV respetando comillas dobles.
- */
-
-
-function parseCSV(csvText) {
-    // 1. Separamos por líneas limpiando retornos de carro y validando longitud
+/*function parseCSV(csvText) {
     const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
     if (lines.length < 2) return [];
 
-    // 2. Extraer cabeceras (la primera línea siempre las debe contener)
-    // Usamos directamente un split dinámico considerando punto y coma O coma
-    const delimiter = lines[0].includes(';') ? ';' : ',';
+    // Detectar el delimitador basado en la primera línea (coma o punto y coma)
+    const delimiter = lines[0].includes(';') ? ';' : (lines[0].includes('\t') ? '\t' : ',');
 
-    // Función súper robusta para leer una línea y sus comillas dobles
+    // Función para parsear una línea respetando comillas dobles
     function parseLine(line) {
         const result = [];
         let current = '';
         let inQuotes = false;
-
         for (let i = 0; i < line.length; i++) {
             const char = line[i];
-
             if (char === '"') {
                 if (inQuotes && line[i + 1] === '"') {
-                    // Si encontramos "" dentro de comillas, lo guardamos como un solo "
                     current += '"';
-                    i++; 
+                    i++; // saltar la siguiente comilla escapada
                 } else {
-                    // Abrimos o cerramos el estado de comillas
                     inQuotes = !inQuotes;
                 }
             } else if (char === delimiter && !inQuotes) {
-                // Si encontramos el delimitador y NO estamos dentro de comillas, cortamos campo
                 result.push(current.trim());
                 current = '';
             } else {
                 current += char;
             }
         }
-        // Pusheamos el último campo acumulado
         result.push(current.trim());
         return result;
     }
 
-    // 3. Obtener el array de cabeceras mapeadas a las columnas que espera PHP
-    const expectedHeaders = ['nombre', 'id_alumno', 'idioma', 'phone', 'intolerancias', 'linkedin', 'email'];
-    
-    // Si la cabecera real es algo como "Nombre,ID,Idioma...", pero tu sistema asume que la cabecera NO viene,
-    // o viene mal escrita, obligaremos a usar la de los expectedHeaders directamente si detectamos fallo.
-    
-    // Leemos la primera línea
-    let headersRaw = parseLine(lines[0]).map(h => {
-        let key = h.toLowerCase().trim();
-        if (key.charCodeAt(0) === 0xFEFF) key = key.substr(1); // BOM
-        return key;
-    });
-
-    // Si la cabecera real del archivo CSV es muy distinta a la esperada, 
-    // forzaremos el mapeo por POSICION de columna, en lugar de por NOMBRE de columna.
-    // Esto previene que si subes un archivo con "Nombre Completo", el sistema lo ignore
-    // porque busca "nombre".
-    let usePositionalMapping = false;
-    if (!headersRaw.includes('nombre') && !headersRaw.includes('id_alumno')) {
-       usePositionalMapping = true;
-    }
+    // 1. Extraemos y normalizamos cabeceras (minúsculas, espacios a guiones bajos)
+    const headers = parseLine(lines[0]).map(h => h.toLowerCase().replace(/ /g, '_'));
 
     const records = [];
 
-    // 4. Iterar sobre las filas de datos
+    // 2. Procesamos los datos
     for (let i = 1; i < lines.length; i++) {
         const values = parseLine(lines[i]);
         
         if (values.length === 0 || (values.length === 1 && values[0] === "")) continue;
 
         const record = {};
-        
-        if (usePositionalMapping) {
-             // Si las cabeceras del CSV son raras, asignamos 
-             // Columna 1 -> nombre
-             // Columna 2 -> id_alumno
-             // etc... basándonos en tu HTML.
-             expectedHeaders.forEach((key, idx) => {
-                 record[key] = values[idx] !== undefined ? values[idx].replace(/^"|"$/g, '').trim() : '';
-             });
-        } else {
-             // Si el CSV trae buenas cabeceras ("nombre", "id_alumno"), mapeamos por el nombre
-             headersRaw.forEach((key, idx) => {
-                 // Si la cabecera coincide con alguna esperada (por ej. 'nombre'), la guardamos.
-                 record[key] = values[idx] !== undefined ? values[idx].replace(/^"|"$/g, '').trim() : '';
-             });
-        }
+        headers.forEach((key, idx) => {
+            record[key] = values[idx] !== undefined ? values[idx] : '';
+        });
 
         records.push(record);
     }
 
     return records;
 }
+
+/**
+ * Parsea una línea CSV respetando comillas dobles.
+ */
+/*function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let insideQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+
+        if (char === '"') {
+            if (insideQuotes && line[i + 1] === '"') {
+                current += '"';
+                i++;
+            } else {
+                insideQuotes = !insideQuotes;
+            }
+        } else if (char === ',' && !insideQuotes) {
+            result.push(current.trim());
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+
+    result.push(current.trim());
+    return result;
+}*/
 
 function showCsvStatus(message, type) {
     const statusDiv = document.getElementById('csv-status');
