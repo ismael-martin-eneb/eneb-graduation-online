@@ -35,6 +35,18 @@ function sanitizeEmail($value, int $maxLen = 255): string
     return mb_strtolower(filter_var($clean, FILTER_SANITIZE_EMAIL));
 }
 
+/**
+ * función para comprobar url
+ */
+function checkUrl($url): string
+{
+    $clean = sanitizeString($url, 255);
+    if (filter_var($clean, FILTER_VALIDATE_URL)) {
+        return $clean;
+    }
+    return '';
+}
+
 /** 
  * Limpia el parámetro foto_referencia y devuelve solo el resource_id de la foto de Zoho WorkDrive, o null si no es válido.
  * 

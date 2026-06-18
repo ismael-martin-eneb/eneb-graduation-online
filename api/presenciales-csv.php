@@ -69,11 +69,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $params = [];
 
     if ($search !== '') {
-        $sql .= ' WHERE nombre LIKE :q';
+        $sql .= ' WHERE nombre_diploma LIKE :q';
         $params[':q'] = '%' . $search . '%';
     }
 
-    $sql .= ' ORDER BY nombre ASC';
+    $sql .= ' ORDER BY nombre_diploma ASC';
 
     try {
         $stmt = $pdo->prepare($sql);
@@ -114,47 +114,88 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Preparar la sentencia para insertar
         $stmt = $pdo->prepare(
             'INSERT INTO ' . DB_TABLE_PRESENCIALES . ' 
-             (nombre, id_alumno, idioma, phone, intolerancias, linkedin, email) 
-             VALUES (:nombre, :id_alumno, :idioma, :phone, :intolerancias, :linkedin, :email)'
+             (id_moodle, nombre_diploma, escuela, idioma, pais, ultimo_programa, n_programas_fin, graduacion, email, telefono, linkedin, interes_profesional, intolerancias, vip) 
+             VALUES (:id_moodle, :nombre_diploma, :escuela, :idioma, :pais, :ultimo_programa, :n_programas_fin, :graduacion, :email, :telefono, :linkedin, :interes_profesional, :intolerancias, :vip)'
         );
 
         foreach ($students as $idx => $student) {
             try {
+                $errors[] = 'Subiendo fila ' . ($idx + 1) . '. Datos: ' . json_encode($student);
                 // Validar y sanitizar campos
-                $nombre = sanitizeName($student['nombre'] ?? '', 120);
+                $nombre = sanitizeName($student['nombre_diploma'] ?? '', 120);
                 if (trim($nombre) === '') {
                     $errors[] = "Fila " . ($idx + 1) . ": El nombre es obligatorio";
                     continue;
                 }
-
-                $idAlumno = sanitizeString($student['id_alumno'] ?? '', 50);
+                $idAlumno = sanitizeString($student['id_moodle'] ?? '', 50);
+                if(trim($idAlumno) === '') {
+                    $errors[] = "Fila " . ($idx + 1) . ": El ID Moodle es obligatorio";
+                    continue;
+                }
+                $idAlumno = intval($idAlumno);
+                $escuela = sanitizeString($student['escuela'] ?? '', 5);
+                if(trim($escuela) === '') {
+                    $errors[] = "Fila " . ($idx + 1) . ": La escuela es obligatoria";
+                    continue;
+                }
                 $idioma = sanitizeString($student['idioma'] ?? '', 50);
-                $phone = sanitizeString($student['phone'] ?? '', 30);
-                $intolerancias = sanitizeString($student['intolerancias'] ?? '', 500);
-                $linkedin = sanitizeString($student['linkedin'] ?? '', 255);
+                if(trim($idioma) === '') {
+                    $errors[] = "Fila " . ($idx + 1) . ": El idioma es obligatorio";
+                    continue;
+                }
+                $pais = sanitizeString($student['pais'] ?? '', 100);
+                if(trim($pais) === '') {
+                    $errors[] = "Fila " . ($idx + 1) . ": El país es obligatorio";
+                    continue;
+                }
+                $ultimo_programa = sanitizeString($student['ultimo_programa'] ?? '', 255);
+                if(trim($ultimo_programa) === '') {
+                    $errors[] = "Fila " . ($idx + 1) . ": El último programa es obligatorio";
+                    continue;
+                }
+                $n_programas_fin = intval($student['n_programas_fin'] ?? 0);
+                $graduacion = sanitizeString($student['graduacion'] ?? '', 50);
+                if(trim($graduacion) === '') {
+                    $errors[] = "Fila " . ($idx + 1) . ": La graduación es obligatoria";
+                    continue;
+                }
                 $email = sanitizeEmail($student['email'] ?? '', 120);
-
-                // Validar email si está presente
                 if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
                     $errors[] = "Fila " . ($idx + 1) . ": Email inválido: $email";
                     continue;
                 }
+                $telefono = sanitizeString($student['telefono'] ?? '', 30);
+                $linkedin = checkUrl($student['linkedin']);
+                $interes_profesional = sanitizeString($student['interes_profesional'] ?? '', 255);
+                $intolerancias = sanitizeString($student['intolerancias'] ?? '', 255);
+                $vip_text = strtolower(trim($student['vip'] ?? ''));
+                // Comprobamos si coincide con "si" o "sí"
+                $vip = in_array($vip_text, ['si', 'sí']) ? 1 : 0;
+                
 
                 // Insertar
                 $stmt->execute([
-                    ':nombre' => $nombre,
-                    ':id_alumno' => $idAlumno ?: null,
-                    ':idioma' => $idioma ?: null,
-                    ':phone' => $phone ?: null,
-                    ':intolerancias' => $intolerancias ?: null,
-                    ':linkedin' => $linkedin ?: null,
-                    ':email' => $email ?: null,
+                    ':id_moodle' => $idAlumno,
+                    ':nombre_diploma' => $nombre,
+                    ':escuela' => $escuela,
+                    ':idioma' => $idioma,
+                    ':pais' => $pais,
+                    ':ultimo_programa' => $ultimo_programa,
+                    ':n_programas_fin' => $n_programas_fin,
+                    ':graduacion' => $graduacion,
+                    ':email' => $email,
+                    ':telefono' => $telefono,
+                    ':linkedin' => $linkedin,
+                    ':interes_profesional' => $interes_profesional, 
+                    ':intolerancias' => $intolerancias,
+                    ':vip' => $vip
                 ]);
 
                 $insertedCount++;
                 $results[] = [
-                    'nombre' => $nombre,
-                    'id_alumno' => $idAlumno,
+                    'nombre_diploma' => $nombre,
+                    'id_moodle' => $idAlumno,
+                    'email' => $email,
                     'status' => 'ok'
                 ];
 

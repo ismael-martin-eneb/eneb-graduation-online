@@ -1950,7 +1950,7 @@ function parseCSV(csvText) {
     }
 
     // 3. Obtener el array de cabeceras mapeadas a las columnas que espera PHP
-    const expectedHeaders = ['nombre', 'id_alumno', 'idioma', 'phone', 'intolerancias', 'linkedin', 'email'];
+    const expectedHeaders = ['id_moodle','nombre_diploma','escuela','idioma','pais','ultimo_programa','n_programas_fin','graduacion','email','telefono','linkedin','interes_profesional','intolerancias','vip'];
     
     // Si la cabecera real es algo como "Nombre,ID,Idioma...", pero tu sistema asume que la cabecera NO viene,
     // o viene mal escrita, obligaremos a usar la de los expectedHeaders directamente si detectamos fallo.
@@ -1967,7 +1967,7 @@ function parseCSV(csvText) {
     // Esto previene que si subes un archivo con "Nombre Completo", el sistema lo ignore
     // porque busca "nombre".
     let usePositionalMapping = false;
-    if (!headersRaw.includes('nombre') && !headersRaw.includes('id_alumno')) {
+    if (!headersRaw.includes('nombre_diploma') && !headersRaw.includes('id_moodle')) {
        usePositionalMapping = true;
     }
 
@@ -2048,13 +2048,13 @@ function renderPresencialesTable(presenciales) {
     }
 
     let html = '<table class="presenciales-table"><thead><tr>' +
+        '<th>ID Moodle</th>' +
         '<th>Nombre</th>' +
-        '<th>ID Alumno</th>' +
         '<th>Idioma</th>' +
-        '<th>Teléfono</th>' +
-        '<th>Intolerancias</th>' +
+        '<th>Escuela</th>' +
+        '<th>País</th>' +
         '<th>LinkedIn</th>' +
-        '<th>Email</th>' +
+        '<th>VIP</th>' +
         '<th style="text-align: center;"><input type="checkbox" id="select-all-presenciales"></th>' +
         '</tr></thead><tbody>';
 
@@ -2063,14 +2063,16 @@ function renderPresencialesTable(presenciales) {
             ? '<a href="' + escapeAttr(row.linkedin) + '" target="_blank" style="color: var(--red);">Perfil ↗</a>'
             : '';
 
+        const vipStatus = row.vip ? 'Sí' : 'No';
+
         html += '<tr>' +
-            '<td>' + escapeHtml(row.nombre || '') + '</td>' +
-            '<td>' + escapeHtml(row.id_alumno || '') + '</td>' +
+            '<td>' + escapeHtml(row.id_moodle || '') + '</td>' +
+            '<td>' + escapeHtml(row.nombre_diploma || '') + '</td>' +
             '<td>' + escapeHtml(row.idioma || '') + '</td>' +
-            '<td>' + escapeHtml(row.phone || '') + '</td>' +
-            '<td>' + escapeHtml(row.intolerancias || '') + '</td>' +
+            '<td>' + escapeHtml(row.escuela || '') + '</td>' +
+            '<td>' + escapeHtml(row.pais || '') + '</td>' +
             '<td>' + linkedinLink + '</td>' +
-            '<td>' + escapeHtml(row.email || '') + '</td>' +
+            '<td>' + vipStatus + '</td>' +
             '<td style="text-align:center;">' +
                 '<input type="checkbox" class="presencial-checkbox" data-index="' + index + '">' +
             '</td>' +
@@ -2178,6 +2180,10 @@ async function generarPDFSeleccionados(alumnos) {
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF('p', 'mm', 'a4');
 
+    // Cargar plantillas una sola vez
+    const plantillaVip = await obtenerImagenBase64('assets/plantilla_vip.jpg');
+    const plantillaNormal = await obtenerImagenBase64('assets/plantilla_max.jpg');
+
     for (let i = 0; i < alumnos.length; i++) {
 
         const alumno = alumnos[i];
@@ -2186,54 +2192,79 @@ async function generarPDFSeleccionados(alumnos) {
             pdf.addPage();
         }
 
-        // Nombre
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(24);
+        // Seleccionar plantilla
+        const plantilla = alumno.vip == 1
+            ? plantillaVip
+            : plantillaNormal;
 
-        pdf.text(
-            alumno.nombre || '',
-            105,
-            40,
-            { align: 'center' }
+        // Fondo A4 completo
+        pdf.addImage(
+            plantilla,
+            'JPEG',
+            0,
+            0,
+            210,
+            297
         );
 
         // QR
         if (alumno.linkedin) {
+            // Nombre y QR
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(20);
+            pdf.setTextColor(0, 0, 0);
+
+            pdf.text(
+                alumno.nombre_diploma || '',
+                105,
+                108,
+                { 
+                    align: 'center',
+                    maxWidth: 70,
+                }
+            );
 
             const qrDataUrl = await generarQRDataURL(alumno.linkedin);
 
             pdf.addImage(
                 qrDataUrl,
                 'PNG',
-                55,
-                60,
-                100,
-                100
-            );
-
-            pdf.setFontSize(12);
-            pdf.setFont('helvetica', 'normal');
-
-            pdf.text(
-                'Escanea para acceder al perfil de LinkedIn',
-                105,
-                175,
-                { align: 'center' }
-            );
-        } else {
-
-            pdf.setFontSize(14);
-
-            pdf.text(
-                'Sin perfil de LinkedIn',
-                105,
+                70,
                 120,
-                { align: 'center' }
+                70,
+                70
+            );
+            
+        } else {
+            // Solo nombre
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(24);
+            pdf.setTextColor(0, 0, 0);
+
+            pdf.text(
+                alumno.nombre_diploma || '',
+                105,
+                145,
+                { 
+                    align: 'center',
+                    maxWidth: 80,
+                }
             );
         }
     }
 
     pdf.save('alumnos-linkedin.pdf');
+}
+
+async function obtenerImagenBase64(url) {
+    const response = await fetch(url);
+    const blob = await response.blob();
+
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+    });
 }
 
 function openForm() {
