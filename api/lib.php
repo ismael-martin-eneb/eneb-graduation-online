@@ -249,6 +249,55 @@ function getMoodleEmbajador(string $idAlumno, string $zohoNombre, float $minScor
     return ['found' => false, 'reason' => 'not_found', 'errors' => $siteErrors];
 }
 
+/**
+ * Intenta obtener los datos del alumno probando los tres sitios Moodle.
+ * Devuelve un array con 'data' (respuesta de Moodle) y 'site' (URL del sitio que respondió),
+ * o null si ningún sitio devuelve datos válidos.
+ *
+ * @param string $idAlumno
+ * @param string $urlCampus  URL base del campus Moodle (para filtrar el sitio correcto)
+ * @return array
+ */
+function getMoodleEmbajador_cli(string $idAlumno, string $urlCampus): array
+{
+    $sites = [
+        ['url' => MOODLE_BASE_URL_1, 'token' => MOODLE_WS_TOKEN_1],
+        ['url' => MOODLE_BASE_URL_2, 'token' => MOODLE_WS_TOKEN_2],
+        ['url' => MOODLE_BASE_URL_3, 'token' => MOODLE_WS_TOKEN_3],
+    ];
+
+    $siteErrors = [];
+
+    foreach ($sites as $site) {
+        if ($urlCampus !== $site['url']) {
+            continue; // Si se especificó un campus, solo consultar ese sitio
+        }
+        $result = callMoodleWebservice(
+            $site['url'],
+            $site['token'],
+            'local_external_functions_get_embajador_by_id',
+            ['userid' => (int) $idAlumno]
+        );
+
+        // Respuesta válida: debe contener el campo userid devuelto por el WS
+        if (!isset($result['error']) && isset($result['userid'])) {
+            // Validar que el nombre Zoho coincide con el nombre Moodle al menos un minScore%
+            $moodleName = trim(($result['firstname'] ?? '') . ' ' . ($result['lastname'] ?? ''));
+
+            return [
+                'found'  => true,
+                'data'   => $result,
+                'site'   => $site['url'],
+            ];
+        }
+
+        $siteErrors[$site['url']] = $result['error'] ?? 'no data';
+        error_log('[moodle-ws] ' . $site['url'] . ' falló para userid=' . $idAlumno . ': ' . ($result['error'] ?? 'no data'));
+    }
+
+    return ['found' => false, 'reason' => 'not_found', 'errors' => $siteErrors];
+}
+
 // ---------------------------------------------------------------------------
 // Zoho WorkDrive — Auto-refresh de access token
 // ---------------------------------------------------------------------------

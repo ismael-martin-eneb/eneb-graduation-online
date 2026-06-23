@@ -1,8 +1,5 @@
 ﻿var FALLBACK_PHOTOS = [
-  "images/1-girl.png", "images/2-boy.png",  "images/3-girl.png",
-  "images/4-boy.png",  "images/5-girl.png", "images/6-boy.png",
-  "images/7-boy.png",  "images/8-girl.png", "images/9-girl.png",
-  "images/10-boy.png"
+  "images/user.png"
 ];
 
 function App() {
@@ -28,11 +25,10 @@ function App() {
     fetch((window.API_BASE || "") + "/api/graduates.php")
       .then(function(r) { return r.json(); })
       .then(function(data) {
-        var photoIdx = 0;
         var grads = (data.graduates || []).map(function(g) {
           if (!g.photo) {
             return Object.assign({}, g, {
-              photo: FALLBACK_PHOTOS[photoIdx++ % FALLBACK_PHOTOS.length]
+              photo: FALLBACK_PHOTOS
             });
           }
           return g;
