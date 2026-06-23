@@ -141,6 +141,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    // ── Acción: eliminar lead completo ─────────────────────────────────────────
+    if ($action === 'delete_lead') {
+        $pdo->beginTransaction();
+        try {
+            // Eliminar de graduados (relación)
+            $stmtGrad = $pdo->prepare('DELETE FROM ' . DB_TABLE_GRADUADOS . ' WHERE id_alumno = :id');
+            $stmtGrad->execute([':id' => $leadId]);
+
+            // Eliminar de zoho_leads
+            $stmtLead = $pdo->prepare('DELETE FROM ' . DB_TABLE_ZOHO_LEADS . ' WHERE id = :id');
+            $stmtLead->execute([':id' => $leadId]);
+
+            $pdo->commit();
+            error_log('[admin-photos] Lead eliminado lead_id=' . $leadId . ' (' . $lead['nombre'] . ')');
+            echo json_encode(['success' => true, 'lead_id' => $leadId]);
+        } catch (\PDOException $e) {
+            $pdo->rollBack();
+            http_response_code(500);
+            error_log('[admin-photos] Error al eliminar lead_id=' . $leadId . ': ' . $e->getMessage());
+            exit(json_encode(['error' => 'Error al eliminar el lead completo']));
+        }
+        exit;
+    }
+
     // ── Acción: actualizar información del lead ───────────────────────────────
     if ($action === 'update_info') {
         $updates = [];

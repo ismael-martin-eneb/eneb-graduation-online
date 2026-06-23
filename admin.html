@@ -1271,6 +1271,7 @@ function buildCard(lead) {
         '<button class="btn-upload-photo" title="Subir foto">&#8593; Subir</button>' +
         '<button class="btn-edit-lead" title="Editar información">&#9998; Editar</button>' +
         (hasPhoto ? '<button class="btn-delete-photo" title="Eliminar foto">&#10005;</button>' : '') +
+        '<button class="btn-delete-lead" title="Eliminar graduado" style="background: rgba(255,0,0,.3); color: #fff;">&#128465;</button>' +
       '</div>' +
     '</div>' +
     '<div class="card-progress"><div class="card-progress-bar"></div></div>' +
@@ -1321,6 +1322,16 @@ function buildCard(lead) {
       e.stopPropagation();
       if (!confirm('¿Eliminar la foto de ' + lead.nombre + '?')) return;
       deletePhoto(lead.id, card);
+    });
+  }
+
+  // Botón eliminar lead completo
+  var delLeadBtn = card.querySelector('.btn-delete-lead');
+  if (delLeadBtn) {
+    delLeadBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (!confirm('¿Eliminar completamente al graduado ' + lead.nombre + '? Esta acción es irreversible.')) return;
+      deleteLead(lead.id, card);
     });
   }
 
@@ -1662,6 +1673,45 @@ function deletePhoto(leadId, card) {
     .catch(function() {
       setCardStatus(card, 'error', '&#10005; Error de red');
       setTimeout(function() { setCardStatus(card, 'idle', ''); }, 5000);
+    });
+}
+
+/* ════════════════════════════════════════════════════════
+   Eliminar lead
+   ════════════════════════════════════════════════════════ */
+function deleteLead(leadId, card) {
+  setCardStatus(card, 'uploading', 'Eliminando graduado…');
+
+  var formData = new FormData();
+  formData.append('lead_id', leadId);
+  formData.append('action', 'delete_lead');
+
+  apiFetch(API_URL, { method: 'POST', body: formData })
+    .then(function(r) { return r.json().then(function(d) { return { status: r.status, data: d }; }); })
+    .then(function(result) {
+      if (result.status === 200 && result.data.success) {
+        card.style.display = 'none';
+        // Opcionalmente actualizar el contador
+        var countEl = document.getElementById('header-count');
+        var match = countEl.textContent.match(/(\d+)/);
+        if (match) {
+            var newCount = parseInt(match[1], 10) - 1;
+            countEl.textContent = newCount + ' graduado' + (newCount !== 1 ? 's' : '');
+        }
+      } else {
+        setCardStatus(card, 'error', '&#10005; ' + ((result.data && result.data.error) || 'Error'));
+        setTimeout(function() { 
+          var hasPhoto = !!card.querySelector('.card-photo img');
+          setCardStatus(card, 'idle', hasPhoto ? '&#10003; Con foto' : 'Sin foto asignada'); 
+        }, 5000);
+      }
+    })
+    .catch(function() {
+      setCardStatus(card, 'error', '&#10005; Error de red');
+      setTimeout(function() { 
+        var hasPhoto = !!card.querySelector('.card-photo img');
+        setCardStatus(card, 'idle', hasPhoto ? '&#10003; Con foto' : 'Sin foto asignada'); 
+      }, 5000);
     });
 }
 
@@ -2058,6 +2108,7 @@ function renderPresencialesTable(presenciales) {
         '<th>País</th>' +
         '<th>LinkedIn</th>' +
         '<th>VIP</th>' +
+        '<th>Acciones</th>' +
         '<th style="text-align: center;"><input type="checkbox" id="select-all-presenciales"></th>' +
         '</tr></thead><tbody>';
 
@@ -2068,7 +2119,7 @@ function renderPresencialesTable(presenciales) {
 
         const vipStatus = row.vip ? 'Sí' : 'No';
 
-        html += '<tr>' +
+        html += '<tr id="presencial-row-' + row.id + '">' +
             '<td>' + escapeHtml(row.id_moodle || '') + '</td>' +
             '<td>' + escapeHtml(row.nombre_diploma || '') + '</td>' +
             '<td>' + escapeHtml(row.idioma || '') + '</td>' +
@@ -2076,6 +2127,7 @@ function renderPresencialesTable(presenciales) {
             '<td>' + escapeHtml(row.pais || '') + '</td>' +
             '<td>' + linkedinLink + '</td>' +
             '<td>' + vipStatus + '</td>' +
+            '<td><button onclick="deletePresencial(' + row.id + ', \'' + escapeHtml(row.nombre_diploma || '') + '\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;" title="Eliminar">&#128465;</button></td>' +
             '<td style="text-align:center;">' +
                 '<input type="checkbox" class="presencial-checkbox" data-index="' + index + '">' +
             '</td>' +
@@ -2124,6 +2176,27 @@ function renderPresencialesTable(presenciales) {
 
         generarPDFSeleccionados(seleccionados);
     });
+}
+
+function deletePresencial(id, nombre) {
+    if (!confirm('¿Eliminar al alumno presencial ' + nombre + '? Esta acción es irreversible.')) {
+        return;
+    }
+
+    apiFetch(API_BASE + '/api/presenciales-csv.php?id=' + id, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const row = document.getElementById('presencial-row-' + id);
+                if (row) row.style.display = 'none';
+            } else {
+                alert('Error al eliminar: ' + (data.error || 'Desconocido'));
+            }
+        })
+        .catch(err => {
+            console.error('Error eliminando presencial:', err);
+            alert('Error de red al eliminar');
+        });
 }
 
 function formatDate(dateStr) {

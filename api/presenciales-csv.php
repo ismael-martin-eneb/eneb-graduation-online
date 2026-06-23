@@ -89,6 +89,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// DELETE — Eliminar presencial
+// ═════════════════════════════════════════════════════════════════════════════
+if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+    $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+
+    if ($id <= 0) {
+        http_response_code(422);
+        exit(json_encode(['error' => 'El campo id es obligatorio y debe ser un entero positivo']));
+    }
+
+    try {
+        $stmt = $pdo->prepare('DELETE FROM ' . DB_TABLE_PRESENCIALES . ' WHERE id = :id');
+        $stmt->execute([':id' => $id]);
+        error_log('[presenciales-csv] Presencial eliminado id=' . $id);
+        echo json_encode(['success' => true]);
+    } catch (\PDOException $e) {
+        http_response_code(500);
+        error_log('[presenciales-csv] Error al eliminar: ' . $e->getMessage());
+        exit(json_encode(['error' => 'Error al eliminar presencial']));
+    }
+    exit;
+}
+// ═════════════════════════════════════════════════════════════════════════════
 // POST — Procesar CSV
 // ═════════════════════════════════════════════════════════════════════════════
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
