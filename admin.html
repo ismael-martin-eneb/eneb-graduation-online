@@ -1511,6 +1511,9 @@ document.getElementById('search-input').addEventListener('input', function() {
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(function() {
     loadLeads(q);
+    if (typeof loadPresenciales === 'function') {
+      loadPresenciales(q);
+    }
   }, 350);
 });
 
