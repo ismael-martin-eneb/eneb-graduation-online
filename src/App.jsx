@@ -140,7 +140,7 @@ function App() {
           <window.IconList size={28} color="#fff" />
         </button> */}
         <div className="brand"><img src="https://eneb.es/wp-content/uploads/2021/01/eneb-logo.png" alt="ENEB"></img></div>
-        <label className="search">
+        <label className={"search" + (query ? " search--active" : "")}>
           <window.IconSearch size={18} color="#fff" />
           <input
             type="text"
@@ -162,6 +162,16 @@ function App() {
             </button>
           ))}
         </div>
+        <select
+          className="lang-switcher-mobile"
+          value={lang}
+          onChange={(e) => setLang(e.target.value)}
+          aria-label="Idioma / Language"
+        >
+          <option value="es">ES</option>
+          <option value="en">EN</option>
+          <option value="pt">PT</option>
+        </select>
       </header>
 
       <main className="content">
