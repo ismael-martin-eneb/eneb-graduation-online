@@ -131,6 +131,22 @@ a { color: inherit; }
   border-radius: 76px;
   padding: 4px;
 }
+.lang-switcher-mobile {
+  display: none;
+  background: rgba(255,255,255,0.08);
+  border: 2px solid rgba(255,255,255,0.45);
+  border-radius: 76px;
+  color: #fff;
+  font-family: "Poppins", sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 6px 12px;
+  outline: none;
+  cursor: pointer;
+}
+.lang-switcher-mobile option {
+  color: #000;
+}
 .lang-btn {
   background: transparent;
   border: 0;
