@@ -79,6 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             zl.nombre                                                          AS nombre,
             zl.id_alumno                                                       AS id_alumno,
             zl.foto                                                            AS foto,
+            zl.foto_graduate                                                   AS foto_graduate,
             zl.frase                                                           AS frase,
             zl.pais                                                            AS pais,
             GROUP_CONCAT(ep.name ORDER BY ep.id SEPARATOR \' · \')            AS programas
@@ -94,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $params[':q'] = '%' . $search . '%';
     }
 
-    $sql .= ' GROUP BY zl.id, zl.nombre, zl.id_alumno, zl.foto, zl.frase, zl.pais ORDER BY zl.nombre';
+    $sql .= ' GROUP BY zl.id, zl.nombre, zl.id_alumno, zl.foto, zl.foto_graduate, zl.frase, zl.pais ORDER BY zl.nombre';
 
     try {
         $stmt = $pdo->prepare($sql);
@@ -134,10 +135,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // ── Acción: eliminar foto ─────────────────────────────────────────────────
     if ($action === 'delete') {
-        $updStmt = $pdo->prepare('UPDATE ' . DB_TABLE_ZOHO_LEADS . ' SET foto = NULL WHERE id = :id');
+        $targetField = isset($_POST['target_field']) && $_POST['target_field'] === 'foto_graduate' ? 'foto_graduate' : 'foto';
+        $updStmt = $pdo->prepare('UPDATE ' . DB_TABLE_ZOHO_LEADS . ' SET ' . $targetField . ' = NULL WHERE id = :id');
         $updStmt->execute([':id' => $leadId]);
-        error_log('[admin-photos] Foto eliminada para lead_id=' . $leadId . ' (' . $lead['nombre'] . ')');
-        echo json_encode(['success' => true, 'lead_id' => $leadId, 'foto_url' => null]);
+        error_log('[admin-photos] ' . $targetField . ' eliminada para lead_id=' . $leadId . ' (' . $lead['nombre'] . ')');
+        echo json_encode(['success' => true, 'lead_id' => $leadId, 'foto_url' => null, 'target_field' => $targetField]);
         exit;
     }
 
@@ -230,6 +232,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit(json_encode(['error' => 'No se recibió ningún fichero válido', 'upload_error' => $uploadError]));
     }
 
+    $targetField = isset($_POST['target_field']) && $_POST['target_field'] === 'foto_graduate' ? 'foto_graduate' : 'foto';
+
     $file = $_FILES['file'];
 
     // Validar tamaño (máx. 10 MB)
@@ -284,8 +288,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ext        = 'png';
     }
 
-    // Nombre de fichero en S3: ADMIN_{leadId}.{ext}
-    $photoName = 'ADMIN_' . $leadId . '.' . $ext;
+    // Nombre de fichero en S3: ADMIN_{leadId}.{ext} o GRADUATE_{leadId}.{ext}
+    if ($targetField === 'foto_graduate') {
+        $photoName = 'GRADUATE_' . $leadId . '.' . $ext;
+    } else {
+        $photoName = 'ADMIN_' . $leadId . '.' . $ext;
+    }
     $s3Key     = rtrim(AWS_S3_PREFIX, '/') . '/' . $photoName;
 
     // Subir a S3
@@ -310,19 +318,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $photoUrl = $s3Result['url'];
 
-    // Actualizar zoho_leads.foto
-    $updStmt = $pdo->prepare('UPDATE ' . DB_TABLE_ZOHO_LEADS . ' SET foto = :foto WHERE id = :id');
+    // Actualizar zoho_leads.foto o zoho_leads.foto_graduate
+    $updStmt = $pdo->prepare('UPDATE ' . DB_TABLE_ZOHO_LEADS . ' SET ' . $targetField . ' = :foto WHERE id = :id');
     $updStmt->execute([':foto' => $photoUrl, ':id' => $leadId]);
 
-    error_log('[admin-photos] Foto actualizada para lead_id=' . $leadId
+    error_log('[admin-photos] ' . $targetField . ' actualizada para lead_id=' . $leadId
         . ' (' . $lead['nombre'] . ') → ' . $photoUrl
         . ($skipAi ? ' [sin AI]' : ' [con AI]'));
 
     echo json_encode([
-        'success'  => true,
-        'lead_id'  => $leadId,
-        'foto_url' => $photoUrl,
-        'ai_used'  => !$skipAi,
+        'success'      => true,
+        'lead_id'      => $leadId,
+        'foto_url'     => $photoUrl,
+        'ai_used'      => !$skipAi,
+        'target_field' => $targetField,
     ]);
     exit;
 }

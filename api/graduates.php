@@ -104,7 +104,8 @@ try {
             zl.id            AS zoho_id,
             zl.nombre        AS name,
             zl.pais          AS pais,
-            zl.foto          AS photo,
+            zl.foto          AS foto,
+            zl.foto_graduate AS foto_graduate,
             zl.frase         AS message,
             eg.program_id    AS program_id,
             eg.graduation_date,
@@ -127,6 +128,8 @@ try {
             ? (int) substr($row['graduation_date'], 0, 4)
             : 2026;
 
+        $photo     = ($row['foto'] !== null && $row['foto'] !== '') ? $row['foto'] : null;
+
         $graduates[] = [
             'id'        => $row['program_id'] . '-' . $row['zoho_id'],
             'name'      => $row['name'],
@@ -137,7 +140,8 @@ try {
             'badges'    => deriveBadges($cumlaude),
             'year'      => $year,
             'message'   => $row['message'] !== null ? $row['message'] : '',
-            'photo'     => ($row['photo'] !== null && $row['photo'] !== '') ? $row['photo'] : null,
+            'photo'     => $photo,
+            'photo_graduate' => ($row['foto_graduate'] !== null && $row['foto_graduate'] !== '') ? $row['foto_graduate'] : null,
         ];
     }
 

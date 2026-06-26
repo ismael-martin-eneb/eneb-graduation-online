@@ -284,9 +284,11 @@
       inset: 0;
       background: rgba(0,0,0,.55);
       display: flex;
-      align-items: center;
+      flex-direction: column;
+      align-items: stretch;
       justify-content: center;
-      gap: 12px;
+      gap: 8px;
+      padding: 0 20px;
       opacity: 0;
       transition: opacity .25s;
     }
@@ -303,6 +305,7 @@
       font-weight: 600;
       cursor: pointer;
       transition: transform .15s;
+      width: 100%;
     }
 
     .photo-overlay button:active { transform: scale(.95); }
@@ -1253,6 +1256,7 @@ function buildCard(lead) {
   card.dataset.nombre   = lead.nombre    || '';
 
   var hasPhoto = !!lead.foto;
+  var hasPhotoGraduate = !!lead.foto_graduate;
 
   card.innerHTML =
     '<div class="card-photo">' +
@@ -1268,9 +1272,11 @@ function buildCard(lead) {
           '</div>'
       ) +
       '<div class="photo-overlay">' +
-        '<button class="btn-upload-photo" title="Subir foto">&#8593; Subir</button>' +
+        '<button class="btn-upload-photo" title="Subir foto IA">&#8593; Subir</button>' +
+        '<button class="btn-upload-photo-graduate" title="Subir foto de graduado" style="background: var(--warn); color: #fff;">&#8593; Graduado</button>' +
         '<button class="btn-edit-lead" title="Editar información">&#9998; Editar</button>' +
         (hasPhoto ? '<button class="btn-delete-photo" title="Eliminar foto">&#10005;</button>' : '') +
+        (hasPhotoGraduate ? '<button class="btn-delete-photo-graduate" title="Eliminar foto graduado" style="background: rgba(255,255,255,.12); color: #ffaaaa;">&#10005; G</button>' : '') +
         '<button class="btn-delete-lead" title="Eliminar graduado" style="background: rgba(255,0,0,.3); color: #fff;">&#128465;</button>' +
       '</div>' +
     '</div>' +
@@ -1300,13 +1306,19 @@ function buildCard(lead) {
     e.preventDefault();
     card.classList.remove('drag-over');
     var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    if (file) openModal(lead.id, lead.nombre, file);
+    if (file) openModal(lead.id, lead.nombre, file, 'foto');
   });
 
-  // Botón subir
+  // Botón subir foto IA
   card.querySelector('.btn-upload-photo').addEventListener('click', function(e) {
     e.stopPropagation();
-    openModal(lead.id, lead.nombre, null);
+    openModal(lead.id, lead.nombre, null, 'foto');
+  });
+
+  // Botón subir foto graduado
+  card.querySelector('.btn-upload-photo-graduate').addEventListener('click', function(e) {
+    e.stopPropagation();
+    openModal(lead.id, lead.nombre, null, 'foto_graduate');
   });
 
   // Botón editar
@@ -1321,7 +1333,17 @@ function buildCard(lead) {
     delBtn.addEventListener('click', function(e) {
       e.stopPropagation();
       if (!confirm('¿Eliminar la foto de ' + lead.nombre + '?')) return;
-      deletePhoto(lead.id, card);
+      deletePhoto(lead.id, card, 'foto');
+    });
+  }
+
+  // Botón eliminar foto graduado
+  var delGradBtn = card.querySelector('.btn-delete-photo-graduate');
+  if (delGradBtn) {
+    delGradBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (!confirm('¿Eliminar la foto de graduado de ' + lead.nombre + '?')) return;
+      deletePhoto(lead.id, card, 'foto_graduate');
     });
   }
 
@@ -1536,15 +1558,27 @@ var dropZone   = document.getElementById('modal-drop-zone');
 var fileInput  = document.getElementById('hidden-file-input');
 var confirmBtn = document.getElementById('modal-confirm');
 var cancelBtn  = document.getElementById('modal-cancel');
+var uploadTargetField = 'foto'; // 'foto' or 'foto_graduate'
 
-function openModal(leadId, leadName, preselectedFile) {
+function openModal(leadId, leadName, preselectedFile, targetField = 'foto') {
   pendingLeadId   = leadId;
   pendingLeadName = leadName;
   selectedFile    = preselectedFile || null;
+  uploadTargetField = targetField;
 
-  document.getElementById('modal-grad-name').textContent = leadName;
+  document.getElementById('modal-grad-name').textContent = leadName + (targetField === 'foto_graduate' ? ' (Foto de Graduado)' : '');
   document.getElementById('modal-file-name').textContent = selectedFile ? selectedFile.name : '';
-  document.getElementById('opt-ai').checked = false;
+  
+  if (targetField === 'foto_graduate') {
+    document.getElementById('opt-ai').checked = false;
+    document.getElementById('opt-ai').disabled = true;
+    document.querySelector('.option-row').style.opacity = '0.5';
+  } else {
+    document.getElementById('opt-ai').checked = false;
+    document.getElementById('opt-ai').disabled = false;
+    document.querySelector('.option-row').style.opacity = '1';
+  }
+
   confirmBtn.disabled = !selectedFile;
 
   modal.classList.add('open');
@@ -1555,6 +1589,7 @@ function closeModal() {
   pendingLeadId = null;
   pendingLeadName = '';
   selectedFile = null;
+  uploadTargetField = 'foto';
   document.getElementById('modal-file-name').textContent = '';
   confirmBtn.disabled = true;
 }
@@ -1603,14 +1638,20 @@ confirmBtn.addEventListener('click', function() {
   // Capturar valores ANTES de closeModal(), que los resetea a null
   var leadId = pendingLeadId;
   var file   = selectedFile;
+  var targetField = uploadTargetField;
+  
+  if (targetField === 'foto_graduate') {
+      skipAi = true; // Forzar skip_ai para fotos de graduado
+  }
+
   closeModal();
-  uploadPhoto(leadId, file, skipAi);
+  uploadPhoto(leadId, file, skipAi, targetField);
 });
 
 /* ════════════════════════════════════════════════════════
    Subir foto
    ════════════════════════════════════════════════════════ */
-function uploadPhoto(leadId, file, skipAi) {
+function uploadPhoto(leadId, file, skipAi, targetField = 'foto') {
   var card = document.querySelector('.lead-card[data-lead-id="' + leadId + '"]');
   if (!card) return;
 
@@ -1621,6 +1662,7 @@ function uploadPhoto(leadId, file, skipAi) {
   formData.append('lead_id', leadId);
   formData.append('file', file);
   formData.append('skip_ai', skipAi ? '1' : '0');
+  formData.append('target_field', targetField);
 
   apiFetch(API_URL, {
     method: 'POST',
@@ -1633,7 +1675,33 @@ function uploadPhoto(leadId, file, skipAi) {
   .then(function(result) {
     if (result.status === 200 && result.data.success) {
       setCardStatus(card, 'ok', '&#10003; Foto actualizada');
-      updateCardPhoto(card, result.data.foto_url);
+      if (result.data.target_field === 'foto') {
+        updateCardPhoto(card, result.data.foto_url);
+      } else if (result.data.target_field === 'foto_graduate') {
+        // Añadir/actualizar el botón de eliminar foto graduado si no existe
+        var overlay = card.querySelector('.photo-overlay');
+        if (overlay && !overlay.querySelector('.btn-delete-photo-graduate')) {
+            var delGradBtn = document.createElement('button');
+            delGradBtn.className = 'btn-delete-photo-graduate';
+            delGradBtn.title = 'Eliminar foto graduado';
+            delGradBtn.style.background = 'rgba(255,255,255,.12)';
+            delGradBtn.style.color = '#ffaaaa';
+            delGradBtn.innerHTML = '&#10005; G';
+            delGradBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (!confirm('¿Eliminar la foto de graduado?')) return;
+                deletePhoto(leadId, card, 'foto_graduate');
+            });
+            
+            // Insertar antes del botón de eliminar lead
+            var delLeadBtn = overlay.querySelector('.btn-delete-lead');
+            if (delLeadBtn) {
+                overlay.insertBefore(delGradBtn, delLeadBtn);
+            } else {
+                overlay.appendChild(delGradBtn);
+            }
+        }
+      }
       setTimeout(function() { setCardStatus(card, 'idle', '&#10003; Con foto'); }, 3500);
     } else {
       var msg = (result.data && result.data.error) ? result.data.error : 'Error desconocido';
@@ -1651,20 +1719,29 @@ function uploadPhoto(leadId, file, skipAi) {
 /* ════════════════════════════════════════════════════════
    Eliminar foto
    ════════════════════════════════════════════════════════ */
-function deletePhoto(leadId, card) {
+function deletePhoto(leadId, card, targetField = 'foto') {
   setCardStatus(card, 'uploading', 'Eliminando…');
 
   var formData = new FormData();
   formData.append('lead_id', leadId);
   formData.append('action', 'delete');
+  formData.append('target_field', targetField);
 
   apiFetch(API_URL, { method: 'POST', body: formData })
     .then(function(r) { return r.json().then(function(d) { return { status: r.status, data: d }; }); })
     .then(function(result) {
       if (result.status === 200 && result.data.success) {
         setCardStatus(card, 'ok', '&#10003; Foto eliminada');
-        updateCardPhoto(card, null);
-        setTimeout(function() { setCardStatus(card, 'idle', 'Sin foto asignada'); }, 3000);
+        if (result.data.target_field === 'foto') {
+          updateCardPhoto(card, null);
+        } else if (result.data.target_field === 'foto_graduate') {
+          var overlay = card.querySelector('.photo-overlay');
+          if (overlay) {
+            var delGradBtn = overlay.querySelector('.btn-delete-photo-graduate');
+            if (delGradBtn) delGradBtn.remove();
+          }
+        }
+        setTimeout(function() { setCardStatus(card, 'idle', card.querySelector('.card-photo img') ? '&#10003; Con foto' : 'Sin foto asignada'); }, 3000);
       } else {
         setCardStatus(card, 'error', '&#10005; ' + ((result.data && result.data.error) || 'Error'));
         setTimeout(function() { setCardStatus(card, 'idle', ''); }, 5000);
@@ -1754,9 +1831,21 @@ function updateCardPhoto(card, url) {
         e.stopPropagation();
         var leadId = card.dataset.leadId;
         if (!confirm('¿Eliminar la foto de este graduado?')) return;
-        deletePhoto(leadId, card);
+        deletePhoto(leadId, card, 'foto');
       });
-      overlay.appendChild(delBtn);
+      
+      // Insertar antes del botón de eliminar lead, o antes del botón de eliminar graduado si existe
+      var overlayButtons = overlay.querySelectorAll('button');
+      var lastBtn = overlayButtons[overlayButtons.length - 1]; // btn-delete-lead
+      var gradBtn = overlay.querySelector('.btn-delete-photo-graduate');
+      
+      if (gradBtn) {
+        overlay.insertBefore(delBtn, gradBtn);
+      } else if (lastBtn) {
+        overlay.insertBefore(delBtn, lastBtn);
+      } else {
+        overlay.appendChild(delBtn);
+      }
     }
   } else {
     // Sin foto

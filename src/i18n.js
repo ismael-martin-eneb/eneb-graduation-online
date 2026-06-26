@@ -27,6 +27,7 @@ window.TRANSLATIONS = {
     averageGrade: "Nota media",
     shareTitle: "Graduado/a ENEB",
     shareText: "se ha graduado en",
+    viewGraduatePhoto: "Ver foto graduado",
     // Honores
     honor_cum_laude:     "Cum Laude",
     honor_sobresaliente: "Sobresaliente",
@@ -81,6 +82,7 @@ window.TRANSLATIONS = {
     averageGrade: "Average grade",
     shareTitle: "ENEB Graduate",
     shareText: "has graduated in",
+    viewGraduatePhoto: "View graduate photo",
     // Honors
     honor_cum_laude:     "Cum Laude",
     honor_sobresaliente: "Outstanding",
@@ -135,6 +137,7 @@ window.TRANSLATIONS = {
     averageGrade: "Nota média",
     shareTitle: "Graduado/a ENEB",
     shareText: "graduou-se em",
+    viewGraduatePhoto: "Ver foto de graduação",
     // Honras
     honor_cum_laude:     "Cum Laude",
     honor_sobresaliente: "Distinção",
