@@ -1062,6 +1062,12 @@
     <p class="grad-name" id="edit-grad-name"></p>
 
     <div class="field-group">
+      <label for="edit-nombre-alumno">Nombre de alumno</label>
+      <input type="text" id="edit-nombre-alumno" placeholder="Ej: Fulanito de Tal" />
+      <p class="field-hint">Nombre del alumno</p>
+    </div>
+
+    <div class="field-group">
       <label for="edit-id-alumno">ID de alumno (Moodle)</label>
       <input type="number" id="edit-id-alumno" min="1" placeholder="Ej: 20931" />
       <p class="field-hint">Identificador numérico del alumno en Moodle</p>
@@ -1306,19 +1312,19 @@ function buildCard(lead) {
     e.preventDefault();
     card.classList.remove('drag-over');
     var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    if (file) openModal(lead.id, lead.nombre, file, 'foto');
+    if (file) openModal(lead.id, card.dataset.nombre, file, 'foto');
   });
 
   // Botón subir foto IA
   card.querySelector('.btn-upload-photo').addEventListener('click', function(e) {
     e.stopPropagation();
-    openModal(lead.id, lead.nombre, null, 'foto');
+    openModal(lead.id, card.dataset.nombre, null, 'foto');
   });
 
   // Botón subir foto graduado
   card.querySelector('.btn-upload-photo-graduate').addEventListener('click', function(e) {
     e.stopPropagation();
-    openModal(lead.id, lead.nombre, null, 'foto_graduate');
+    openModal(lead.id, card.dataset.nombre, null, 'foto_graduate');
   });
 
   // Botón editar
@@ -1332,7 +1338,7 @@ function buildCard(lead) {
   if (delBtn) {
     delBtn.addEventListener('click', function(e) {
       e.stopPropagation();
-      if (!confirm('¿Eliminar la foto de ' + lead.nombre + '?')) return;
+      if (!confirm('¿Eliminar la foto de ' + card.dataset.nombre + '?')) return;
       deletePhoto(lead.id, card, 'foto');
     });
   }
@@ -1342,7 +1348,7 @@ function buildCard(lead) {
   if (delGradBtn) {
     delGradBtn.addEventListener('click', function(e) {
       e.stopPropagation();
-      if (!confirm('¿Eliminar la foto de graduado de ' + lead.nombre + '?')) return;
+      if (!confirm('¿Eliminar la foto de graduado de ' + card.dataset.nombre + '?')) return;
       deletePhoto(lead.id, card, 'foto_graduate');
     });
   }
@@ -1352,7 +1358,7 @@ function buildCard(lead) {
   if (delLeadBtn) {
     delLeadBtn.addEventListener('click', function(e) {
       e.stopPropagation();
-      if (!confirm('¿Eliminar completamente al graduado ' + lead.nombre + '? Esta acción es irreversible.')) return;
+      if (!confirm('¿Eliminar completamente al graduado ' + card.dataset.nombre + '? Esta acción es irreversible.')) return;
       deleteLead(lead.id, card);
     });
   }
@@ -1363,12 +1369,13 @@ function buildCard(lead) {
 /* ════════════════════════════════════════════════════════
    Modal de edición de lead
    ════════════════════════════════════════════════════════ */
-var editModal     = document.getElementById('edit-lead-modal');
-var editIdAlumno  = document.getElementById('edit-id-alumno');
-var editFrase     = document.getElementById('edit-frase');
-var editSaveBtn   = document.getElementById('edit-save');
-var editCancelBtn = document.getElementById('edit-cancel');
-var editingCard   = null;
+var editModal        = document.getElementById('edit-lead-modal');
+var editNombreAlumno = document.getElementById('edit-nombre-alumno');
+var editIdAlumno     = document.getElementById('edit-id-alumno');
+var editFrase        = document.getElementById('edit-frase');
+var editSaveBtn      = document.getElementById('edit-save');
+var editCancelBtn    = document.getElementById('edit-cancel');
+var editingCard      = null;
 
 document.getElementById('edit-frase').addEventListener('input', function() {
   document.getElementById('edit-frase-count').textContent = this.value.length;
@@ -1444,8 +1451,9 @@ var editPaisInput = document.getElementById('edit-pais');
 function openEditModal(card) {
   editingCard = card;
   document.getElementById('edit-grad-name').textContent = card.dataset.nombre;
-  editIdAlumno.value = card.dataset.idAlumno || '';
-  editFrase.value    = card.dataset.frase    || '';
+  editNombreAlumno.value = card.dataset.nombre || '';
+  editIdAlumno.value = card.dataset.idAlumno   || '';
+  editFrase.value    = card.dataset.frase      || '';
   // Para el país mostramos el código solo; el usuario puede buscar por nombre
   editPaisInput.value = card.dataset.pais || '';
   document.getElementById('edit-frase-count').textContent = editFrase.value.length;
@@ -1474,7 +1482,7 @@ editSaveBtn.addEventListener('click', function() {
   // El datalist tiene valores tipo "ES - España"; extraemos los 2 primeros chars si aplica
   var paisRaw   = editPaisInput.value.trim();
   var pais      = /^[A-Za-z]{2}(\s+-|$)/.test(paisRaw) ? paisRaw.substring(0, 2).toUpperCase() : paisRaw.toUpperCase();
-
+  var nombre    = editNombreAlumno.value.trim();
   editSaveBtn.disabled    = true;
   editSaveBtn.textContent = 'Guardando…';
 
@@ -1482,6 +1490,7 @@ editSaveBtn.addEventListener('click', function() {
   formData.append('lead_id',   leadId);
   formData.append('action',    'update_info');
   formData.append('id_alumno', idAlumno);
+  formData.append('nombre',    nombre);
   formData.append('frase',     frase);
   formData.append('pais',      pais);
 
@@ -1490,9 +1499,17 @@ editSaveBtn.addEventListener('click', function() {
     .then(function(result) {
       if (result.status === 200 && result.data.success) {
         // Actualizar dataset del card
+        card.dataset.nombre   = nombre;
         card.dataset.idAlumno = idAlumno;
         card.dataset.frase    = frase;
         card.dataset.pais     = pais;
+
+        // Actualizar nombre visible
+        var cardNameEl = card.querySelector('.card-name');
+        if (cardNameEl) {
+          cardNameEl.textContent = nombre;
+        }
+
         // Reconstruir badges de meta
         var cardMeta = card.querySelector('.card-meta');
         if (cardMeta) {
