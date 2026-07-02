@@ -130,9 +130,6 @@ if ($nombre === '') {
 if ($id_alumno === '') {
     $errors[] = 'El campo ID de estudiante es obligatorio';
 }
-if ($frase === '') {
-    $errors[] = 'El campo frase es obligatorio';
-}
 if ($timecreated === '') {
     $errors[] = 'El campo hora agregado es obligatorio';
 }

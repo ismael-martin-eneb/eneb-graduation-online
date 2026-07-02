@@ -830,6 +830,31 @@
       border: 1px solid rgba(59, 130, 246, .3);
     }
 
+    /* CSS para mensajes de estado de CSV (utilizado para presenciales y graduados online) */
+    .csv-status {
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .csv-status.success {
+      background: rgba(34, 197, 94, .1);
+      color: #22c55e;
+      border: 1px solid rgba(34, 197, 94, .3);
+    }
+
+    .csv-status.error {
+      background: rgba(239, 68, 68, .1);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, .3);
+    }
+
+    .csv-status.info {
+      background: rgba(59, 130, 246, .1);
+      color: #3b82f6;
+      border: 1px solid rgba(59, 130, 246, .3);
+    }
+
     /* Button used to open the contact form - fixed at the bottom of the page */
 .open-button {
   background:#ff1e2d;
@@ -844,6 +869,7 @@
   right: 28px;
   width: 280px;
   transition:.3s;
+  z-index: 1;
 }
 
 /* The popup form - hidden by default */
@@ -959,6 +985,29 @@
       <button class="tablinks" onclick="openType(event, 'Presencial')">Presencial</button>
     </div>
     <div id="Online" class="tabcontent">
+      <button class="open-button" id="btn-open-online-csv" onclick="openOnlineForm()">Cargar graduados desde CSV</button>
+
+      <!-- The form for Online graduates CSV -->
+      <div class="form-popup" id="onlineGraduatesForm">
+          <form id="onlineGraduatesCsvForm" enctype="multipart/form-data">
+              <h1>Cargar graduados online desde CSV</h1>
+              <p class="csv-description">
+                  Selecciona un archivo CSV con el formato:
+                  <br>
+                  <strong>nombre, id_alumno, frase, timecreated, campus</strong>
+              </p>
+
+              <label for="onlineCsvFile"><b>Archivo</b></label>
+              <input type="file" id="onlineCsvFile" name="graduates_csv" accept=".csv" required>
+
+              <button type="submit" class="btn-upload" id="online-csv-submit-btn">
+                  Subir y procesar
+              </button>
+              <button type="button" class="btn-cancel" onclick="closeOnlineForm()">Cancelar</button>
+          </form>
+          <div id="online-csv-status" style="margin-top: 12px; font-size: 12px; display: none;"></div>
+      </div>
+
       <div id="leads-container"></div>
     </div>
 
@@ -2456,6 +2505,213 @@ function openForm() {
 function closeForm() {
   document.getElementById("myForm").style.display = "none";
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// Funciones para CSV de Graduados Online
+// ════════════════════════════════════════════════════════════════════════════
+
+function openOnlineForm() {
+  document.getElementById("onlineGraduatesForm").style.display = "block";
+}
+
+function closeOnlineForm() {
+  document.getElementById("onlineGraduatesForm").style.display = "none";
+  document.getElementById("onlineCsvFile").value = '';
+  document.getElementById("online-csv-status").style.display = 'none';
+  document.getElementById("online-csv-status").textContent = '';
+}
+
+function showOnlineCsvStatus(message, type) {
+  var statusEl = document.getElementById('online-csv-status');
+  statusEl.style.display = 'block';
+  statusEl.className = 'csv-status ' + type;
+  statusEl.textContent = message;
+}
+
+/**
+ * Parsea CSV de graduados online.
+ * Detecta automáticamente si el separador es coma o punto y coma.
+ * Formato esperado: nombre, id_alumno, frase, timecreated, campus
+ */
+function parseOnlineCSV(csvText) {
+  const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
+  if (lines.length < 2) return [];
+
+  // Detectar separador: contar comas vs punto y coma en la primera línea
+  const headerLine = lines[0];
+  const commaCount = (headerLine.match(/,/g) || []).length;
+  const semicolonCount = (headerLine.match(/;/g) || []).length;
+  const separator = semicolonCount > commaCount ? ';' : ',';
+
+  // Extraer cabeceras (primera línea)
+  const headers = parseCSVLine(headerLine, separator).map(h => h.trim().toLowerCase());
+
+  // Mapear índices de columnas
+  const indexMap = {};
+  const requiredFields = ['nombre', 'id_alumno', 'campus'];
+  
+  for (const field of requiredFields) {
+    const idx = headers.findIndex(h => h.includes(field));
+    if (idx === -1) {
+      console.warn('Campo requerido no encontrado en CSV: ' + field);
+    }
+    indexMap[field] = idx;
+  }
+
+  // Opcional
+  indexMap['frase'] = headers.findIndex(h => h.includes('frase'));
+  indexMap['timecreated'] = headers.findIndex(h => h.includes('timecreated'));
+
+  // Parsear datos
+  const graduates = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    const cells = parseCSVLine(line, separator);
+
+    // Validar que tenga suficientes columnas
+    const maxIndex = Math.max(...Object.values(indexMap).filter(idx => idx >= 0));
+    if (cells.length <= maxIndex) {
+      console.warn('Fila ' + (i + 1) + ': insuficientes columnas');
+      continue;
+    }
+
+    const graduate = {};
+    
+    // Campos requeridos
+    if (indexMap['nombre'] >= 0) {
+      graduate['nombre'] = cells[indexMap['nombre']].trim();
+    }
+    if (indexMap['id_alumno'] >= 0) {
+      graduate['id_alumno'] = cells[indexMap['id_alumno']].trim();
+    }
+    if (indexMap['campus'] >= 0) {
+      graduate['campus'] = cells[indexMap['campus']].trim();
+    }
+
+    // Campos opcionales
+    if (indexMap['frase'] >= 0) {
+      graduate['frase'] = cells[indexMap['frase']].trim();
+    }
+    if (indexMap['timecreated'] >= 0) {
+      graduate['timecreated'] = cells[indexMap['timecreated']].trim();
+    }
+
+    // Validar que tenga campos requeridos
+    if (graduate['nombre'] && graduate['id_alumno'] && graduate['campus']) {
+      graduates.push(graduate);
+    }
+  }
+
+  return graduates;
+}
+
+/**
+ * Parsea una línea CSV respetando comillas dobles
+ * @param {string} line - La línea a parsear
+ * @param {string} separator - Separador del CSV (coma o punto y coma). Por defecto: coma
+ */
+function parseCSVLine(line, separator = ',') {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const nextChar = line[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === separator && !inQuotes) {
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+
+  result.push(current);
+  return result;
+}
+
+// Escuchar evento de envío del formulario de CSV de graduados online
+document.addEventListener('DOMContentLoaded', function() {
+  const onlineForm = document.getElementById('onlineGraduatesCsvForm');
+  if (!onlineForm) return;
+
+  onlineForm.addEventListener('submit', async function(event) {
+    event.preventDefault();
+
+    const csvFile = document.getElementById('onlineCsvFile');
+    const submitBtn = document.getElementById('online-csv-submit-btn');
+
+    if (!csvFile.files || !csvFile.files[0]) {
+      showOnlineCsvStatus('Selecciona un archivo CSV', 'error');
+      return;
+    }
+
+    const file = csvFile.files[0];
+    
+    try {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Procesando…';
+      showOnlineCsvStatus('Leyendo archivo…', 'info');
+
+      const csvText = await file.text();
+      const graduates = parseOnlineCSV(csvText);
+
+      if (graduates.length === 0) {
+        showOnlineCsvStatus('Error: No se encontraron registros válidos en el CSV', 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Subir y procesar';
+        return;
+      }
+
+      showOnlineCsvStatus('Enviando ' + graduates.length + ' registros…', 'info');
+
+      const response = await apiFetch(API_BASE + '/api/graduados-online-csv.php', {
+        method: 'POST',
+        body: JSON.stringify({ graduates: graduates }),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        showOnlineCsvStatus('Error: ' + (result.error || 'Desconocido'), 'error');
+      } else {
+        const summary = '✓ Insertados: ' + result.inserted + ', Actualizados: ' + result.updated + ' de ' + result.total;
+        showOnlineCsvStatus(summary, result.errors.length === 0 ? 'success' : 'info');
+        
+        if (result.errors.length > 0) {
+          console.warn('Errores al procesar CSV:', result.errors);
+        }
+        
+        // Limpiar input y recargar tabla
+        csvFile.value = '';
+        setTimeout(function() {
+          closeOnlineForm();
+          loadLeads('');
+        }, 2000);
+      }
+
+    } catch (error) {
+      console.error('Error procesando CSV:', error);
+      showOnlineCsvStatus('Error: ' + error.message, 'error');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Subir y procesar';
+    }
+  });
+});
 
 </script>
 </body>

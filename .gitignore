@@ -13,3 +13,5 @@ api/zoho_token_cache.json
 # Estructura de la base de datos
 .db/
 
+salida.txt
+
