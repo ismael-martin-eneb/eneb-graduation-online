@@ -91,6 +91,14 @@ foreach ($alumnos as $alumno) {
     $timecreated = (int) $alumno['timecreated'];
     $payload    = $alumno['raw_payload'];
 
+    // Normalizar nombre: Cada Palabra Comienza Con Mayúscula
+    $nombre = mb_convert_case(mb_strtolower(trim($nombre)), MB_CASE_TITLE, "UTF-8");
+
+    // Normalizar frase: Solo la primera letra mayúscula
+    if (!empty($frase)) {
+        $frase = ucfirst(mb_strtolower(trim($frase), "UTF-8"));
+    }
+
     // Validaciones iniciales
     if (empty($idAlumno)) {
         echo "[ID: {$alumno['id']}] ERROR: id_alumno vacío\n";
