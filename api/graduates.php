@@ -149,7 +149,7 @@ try {
 
     // ── Respaldo: alumnos de zoho_leads sin registro en eneb_graduates ──────
     // Aún no tienen programa/nota asociados (p. ej. importados por CSV), así
-    // que se agrupan en una sección sintética por campus para que sean visibles.
+    // que se agrupan en una única sección sintética al final para que sean visibles.
     $orphans = $pdo->query('
         SELECT zl.id, zl.nombre, zl.pais, zl.foto, zl.foto_graduate, zl.frase, zl.campus
         FROM zoho_leads zl
@@ -158,21 +158,18 @@ try {
         ORDER BY zl.campus, zl.nombre
     ')->fetchAll();
 
-    $campusNames = [];
+    // (php api/sync-moodle.php los asocia a su curso real desde Moodle)
+    $pid = 'sin-curso';
+    if ($orphans) {
+        $programs[] = [
+            'id'        => $pid,
+            'name'      => 'Graduados pendientes de asignar curso',
+            'shortName' => 'Pendientes',
+            'year'      => 2026,
+            'campus'    => '',
+        ];
+    }
     foreach ($orphans as $row) {
-        $campus = (string) ($row['campus'] ?? '');
-        $pid    = 'campus-' . substr(md5($campus), 0, 8);
-        if (!isset($campusNames[$pid])) {
-            $host = parse_url($campus, PHP_URL_HOST) ?: 'ENEB';
-            $campusNames[$pid] = true;
-            $programs[] = [
-                'id'        => $pid,
-                'name'      => 'Graduados ' . $host,
-                'shortName' => 'Graduados ' . $host,
-                'year'      => 2026,
-                'campus'    => $campus,
-            ];
-        }
         $rawPais = $row['pais'] !== null ? strtoupper(trim((string) $row['pais'])) : '';
         $graduates[] = [
             'id'        => $pid . '-' . $row['id'],

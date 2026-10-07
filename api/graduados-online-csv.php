@@ -177,9 +177,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Lanzar la lógica de consulta a Moodle
                     $moodleResult = getMoodleEmbajador_cli((string) $id_alumno, $campus);
                     $moodleStatus = $moodleResult['found'] ? 'ok' : 'not_found';
-                    if ($moodleResult['found']) {
-                        saveMoodleGraduate($pdo, (int) $pdo->lastInsertId(), $moodleResult, $timecreated);
-                    }
                     
                     $results[] = [
                         'nombre' => $nombre,
