@@ -1,7 +1,6 @@
-# ENEB · Graduación Online — notas para llevarlo a producción
+﻿# ENEB · Graduación Online — notas para producción
 
-> **Última actualización:** 2026-06-16  
-> **Cambios recientes:** Agregada funcionalidad de carga CSV para alumnos presenciales en pestaña "Presencial" del panel admin.
+> **Actualización:** la app es ahora React + Vite con backend PHP y panel con usuarios/roles/permisos (ver README.md). Lo que sigue (Next.js, Postgres...) es una propuesta de futuro, no el estado actual.
 
 ## Stack recomendado
 - **Frontend:** Next.js 14 (App Router) desplegado en el subdominio (p. ej. `graduacion.eneb.com`). SSR/ISR para que cada ficha de alumno tenga URL propia indexable y compartible.
@@ -42,3 +41,4 @@ El flujo sugerido, ya que los datos vienen de Moodle:
 - Animación de entrada escalonada para el vídeo promocional.
 - Filtro por programa en la UI (hoy se filtra por búsqueda de texto).
 - Panel admin.
+

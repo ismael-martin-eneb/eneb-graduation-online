@@ -1,47 +1,56 @@
-﻿var FALLBACK_PHOTOS = [
-  "images/user.png"
-];
+import { useState, useEffect, useRef } from "react";
+import { LangContext, TRANSLATIONS, resolveCountryName } from "./i18n.js";
+import BackgroundFX from "./components/BackgroundFX.jsx";
+import ProgramSection from "./components/ProgramSection.jsx";
+import DetailModal from "./components/DetailModal.jsx";
+import { IconSearch } from "./components/Icons.jsx";
 
-function App() {
-  const [query, setQuery] = React.useState("");
-  const [openGraduate, setOpenGraduate] = React.useState(null);
-  const [scrollY, setScrollY] = React.useState(0);
-  const [programs, setPrograms] = React.useState([]);
-  const [graduates, setGraduates] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
-  const [lang, setLang] = React.useState("es");
+/** Base de la API: vacío = mismo origen (en dev Vite hace proxy de /api). */
+const API_BASE = import.meta.env.VITE_API_BASE || "";
+/** Foto por defecto para alumnos sin foto subida. */
+const FALLBACK_PHOTO = "/images/user.png";
 
-  const t = (key) => {
-    var dict = window.TRANSLATIONS[lang] || window.TRANSLATIONS["es"];
-    return dict[key] !== undefined ? dict[key] : key;
-  };
+/** Traductor simple para el propio App (los hijos usan el hook useT). */
+const makeT = (lang) => (key) => {
+  const dict = TRANSLATIONS[lang] || TRANSLATIONS.es;
+  return dict[key] !== undefined ? dict[key] : key;
+};
+
+/**
+ * Vista pública de la graduación online: hero, buscador, selector de idioma,
+ * secciones por programa y ficha de detalle (deep-link con #alumno=ID).
+ */
+export default function App() {
+  const [query, setQuery] = useState("");
+  const [openGraduate, setOpenGraduate] = useState(null);
+  const [scrollY, setScrollY] = useState(0);
+  const [programs, setPrograms] = useState([]);
+  const [graduates, setGraduates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [lang, setLang] = useState("es");
+
+  const t = makeT(lang);
 
   // Referencia mutable para acceder a graduates desde el listener de hashchange
-  const graduatesRef = React.useRef([]);
-  React.useEffect(() => { graduatesRef.current = graduates; }, [graduates]);
+  const graduatesRef = useRef([]);
+  useEffect(() => { graduatesRef.current = graduates; }, [graduates]);
 
   // Cargar datos desde la API
-  React.useEffect(() => {
-    fetch((window.API_BASE || "") + "/api/graduates.php")
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        var grads = (data.graduates || []).map(function(g) {
-          if (!g.photo) {
-            return Object.assign({}, g, {
-              photo: FALLBACK_PHOTOS
-            });
-          }
-          return g;
-        });
+  useEffect(() => {
+    fetch(API_BASE + "/api/graduates.php")
+      .then((r) => r.json())
+      .then((data) => {
+        // Alumnos sin foto usan el avatar por defecto (cadena, no array)
+        const grads = (data.graduates || []).map((g) => (g.photo ? g : { ...g, photo: FALLBACK_PHOTO }));
         setPrograms(data.programs || []);
         setGraduates(grads);
       })
-      .catch(function() { /* la UI muestra estado vacío */ })
-      .finally(function() { setLoading(false); });
+      .catch(() => { /* la UI muestra estado vacío */ })
+      .finally(() => setLoading(false));
   }, []);
 
   // Abrir ficha por hash tras cargar datos
-  React.useEffect(() => {
+  useEffect(() => {
     if (graduates.length === 0) return;
     const m = location.hash.match(/alumno=([^&]+)/);
     if (m) {
@@ -51,7 +60,7 @@ function App() {
   }, [graduates]);
 
   // Listener de hashchange (para navegación posterior a la carga)
-  React.useEffect(() => {
+  useEffect(() => {
     const applyHash = function() {
       const m = location.hash.match(/alumno=([^&]+)/);
       if (m) {
@@ -64,7 +73,7 @@ function App() {
   }, []);
 
   // Paralaje del fondo
-  React.useEffect(() => {
+  useEffect(() => {
     let raf = 0;
     const onScroll = () => {
       if (raf) return;
@@ -80,23 +89,7 @@ function App() {
   const q = query.trim().toLowerCase();
   const filtered = q
     ? graduates.filter(function(g) {
-        // Resolver nombre del país con Intl.DisplayNames para que la búsqueda
-        // funcione por nombre localizado ("Jamaica", "Philippines"…) o por código ("JM")
-        var resolvedCountry = "";
-        if (g.country && g.country !== "unknown") {
-          var upper = g.country.toUpperCase();
-          try {
-            if (typeof Intl !== "undefined" && Intl.DisplayNames) {
-              var dn = new Intl.DisplayNames([lang, "es"], { type: "region" });
-              var r = dn.of(upper);
-              resolvedCountry = (r && r !== upper) ? r : "";
-            }
-          } catch (_) {}
-          if (!resolvedCountry) {
-            var dict = window.TRANSLATIONS[lang] || window.TRANSLATIONS["es"];
-            resolvedCountry = dict["country_" + upper] || window.TRANSLATIONS["es"]["country_" + upper] || upper;
-          }
-        }
+        const resolvedCountry = resolveCountryName(g.country, lang);
         return g.name.toLowerCase().includes(q) ||
                resolvedCountry.toLowerCase().includes(q) ||
                (g.country ? g.country.toLowerCase().includes(q) : false);
@@ -121,13 +114,13 @@ function App() {
   };
 
   return (
-    <window.LangContext.Provider value={lang}>
+    <LangContext.Provider value={lang}>
     <div className="app">
       <div
         className="app__bg"
         style={{ transform: `translate3d(0, ${scrollY * -0.15}px, 0)` }}
       >
-        <window.BackgroundFX />
+        <BackgroundFX />
       </div>
       <div
         className="app__bg app__bg--slow"
@@ -136,12 +129,9 @@ function App() {
       />
 
       <header className="topbar">
-        {/* <button className="iconbtn" aria-label="Menú">
-          <window.IconList size={28} color="#fff" />
-        </button> */}
         <div className="brand"><img src="https://eneb.es/wp-content/uploads/2021/01/eneb-logo.png" alt="ENEB"></img></div>
         <label className={"search" + (query ? " search--active" : "")}>
-          <window.IconSearch size={18} color="#fff" />
+          <IconSearch size={18} color="#fff" />
           <input
             type="text"
             value={query}
@@ -195,7 +185,7 @@ function App() {
         )}
 
         {programs.map(function(p) { return (
-          <window.ProgramSection
+          <ProgramSection
             key={p.id}
             program={p}
             graduates={byProgram[p.id] || []}
@@ -215,11 +205,9 @@ function App() {
       </main>
 
       {openGraduate && program && (
-        <window.DetailModal graduate={openGraduate} program={program} onClose={handleClose} />
+        <DetailModal graduate={openGraduate} program={program} onClose={handleClose} />
       )}
     </div>
-    </window.LangContext.Provider>
+    </LangContext.Provider>
   );
 }
-
-window.App = App;

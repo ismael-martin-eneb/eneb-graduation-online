@@ -1,6 +1,6 @@
 // Avatar genérico de silueta (monocromo blanco sobre fondo rojo oscuro)
 // En producción se sustituye por la foto subida por el alumno.
-function Avatar({ gender: _gender, size = 128, tone = "light", photo }) {
+export default function Avatar({ gender: _gender, size = 128, tone = "light", photo }) {
   if (photo) {
     return (
       <img
@@ -36,5 +36,3 @@ function Avatar({ gender: _gender, size = 128, tone = "light", photo }) {
     </svg>
   );
 }
-
-window.Avatar = Avatar;

@@ -23,3 +23,8 @@
 
 # No listar el directorio
 Options -Indexes
+
+# Scripts de depuración y librerías internas: no accesibles por HTTP
+<FilesMatch "^(_test_.*\.php|lib\.php|auth-lib\.php|google-service-account\.json)$">
+    Require all denied
+</FilesMatch>

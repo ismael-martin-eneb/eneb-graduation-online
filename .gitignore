@@ -15,3 +15,6 @@ api/zoho_token_cache.json
 
 salida.txt
 
+
+node_modules/
+dist/

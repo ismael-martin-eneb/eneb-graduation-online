@@ -13,62 +13,25 @@
  *   - Si existe: actualizar los campos (nombre, frase, timecreated)
  *   - Si no existe: insertar EN zoho_leads Y llamar a getMoodleEmbajador_cli para obtener datos del campus
  *
- * Autenticación: cabecera HTTP X-Admin-Password: <ADMIN_PASSWORD>
+ * Autenticación: sesión de usuario + X-CSRF-Token; permisos por acción (auth-lib.php)
  */
 
 declare(strict_types=1);
 
-header('Content-Type: application/json; charset=utf-8');
-header('X-Content-Type-Options: nosniff');
-
-ini_set('display_errors', '0');
-ini_set('log_errors', '1');
-
-require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/auth-lib.php';
 require_once __DIR__ . '/lib.php';
 
-// ── CORS (solo origen de desarrollo) ─────────────────────────────────────────
-$allowedOrigins = ['http://localhost:5500', 'http://127.0.0.1:5500'];
-$origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
-if (in_array($origin, $allowedOrigins, true)) {
-    header('Access-Control-Allow-Origin: ' . $origin);
-    header('Access-Control-Allow-Credentials: true');
-}
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-Admin-Password');
+// CORS, cabeceras JSON y comprobación de método (ver auth-lib.php)
+apiBootstrap(['GET', 'POST']);
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
-    exit;
-}
-
-// ── Autenticación ─────────────────────────────────────────────────────────────
-$receivedRaw      = isset($_SERVER['HTTP_X_ADMIN_PASSWORD']) ? $_SERVER['HTTP_X_ADMIN_PASSWORD'] : '';
-$receivedPassword = ($receivedRaw !== '') ? (base64_decode($receivedRaw, false) ?: '') : '';
-
-if (!defined('ADMIN_PASSWORD') || !hash_equals(ADMIN_PASSWORD, $receivedPassword)) {
-    http_response_code(401);
-    error_log('[graduados-online-csv] Intento de acceso con contraseña incorrecta desde ' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
-    exit(json_encode(['error' => 'No autorizado']));
-}
-
-// ── Conexión a la base de datos ───────────────────────────────────────────────
-try {
-    $pdo = new PDO(DB_DSN, DB_USER, DB_PASSWORD, [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES   => false,
-    ]);
-} catch (\PDOException $e) {
-    http_response_code(503);
-    error_log('[graduados-online-csv] DB error: ' . $e->getMessage());
-    exit(json_encode(['error' => 'Base de datos no disponible']));
-}
+// La autenticación (sesión + CSRF) y los permisos se exigen por acción más abajo.
+$pdo = getDb();
 
 // ═════════════════════════════════════════════════════════════════════════════
 // GET — Listar graduados online (zoho_leads)
 // ═════════════════════════════════════════════════════════════════════════════
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    requirePermission('graduates.view');
     $search = isset($_GET['q']) ? trim($_GET['q']) : '';
 
     $sql = 'SELECT id, nombre, id_alumno, campus, frase, foto, foto_graduate, timecreated FROM ' . DB_TABLE_ZOHO_LEADS;
@@ -98,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 // POST — Procesar CSV de graduados online
 // ═════════════════════════════════════════════════════════════════════════════
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requirePermission('csv.online.import');
     $inputData = file_get_contents('php://input');
     $decoded = json_decode($inputData, true);
 
@@ -213,6 +177,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Lanzar la lógica de consulta a Moodle
                     $moodleResult = getMoodleEmbajador_cli((string) $id_alumno, $campus);
                     $moodleStatus = $moodleResult['found'] ? 'ok' : 'not_found';
+                    if ($moodleResult['found']) {
+                        saveMoodleGraduate($pdo, (int) $pdo->lastInsertId(), $moodleResult, $timecreated);
+                    }
                     
                     $results[] = [
                         'nombre' => $nombre,

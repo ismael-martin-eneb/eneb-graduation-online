@@ -1,6 +1,9 @@
+import { useT } from "../i18n.js";
+import { IconMedal } from "./Icons.jsx";
+import GraduateCard from "./GraduateCard.jsx";
 // Sección por programa con fila de tarjetas
-function ProgramSection({ program, graduates, onOpen }) {
-  const t = window.useT();
+export default function ProgramSection({ program, graduates, onOpen }) {
+  const t = useT();
   if (graduates.length === 0) return null;
   return (
     <section className="program" data-screen-label={program.shortName}>
@@ -9,18 +12,16 @@ function ProgramSection({ program, graduates, onOpen }) {
         <div className="program__subtitle">
           <span>{t("graduatesWithHonors")}</span>
           <span className="program__medal">
-            <window.IconMedal size={22} color="#fff" />
+            <IconMedal size={22} color="#fff" />
           </span>
           <span className="program__count">{graduates.length}</span>
         </div>
       </div>
       <div className="program__grid">
         {graduates.map((g) => (
-          <window.GraduateCard key={g.id} g={g} onClick={() => onOpen(g)} />
+          <GraduateCard key={g.id} g={g} onClick={() => onOpen(g)} />
         ))}
       </div>
     </section>
   );
 }
-
-window.ProgramSection = ProgramSection;

@@ -7,62 +7,25 @@
  * POST /api/presenciales-csv.php              → procesa CSV y agrega presenciales
  *                    students (JSON array)    → array de objetos con campos
  *
- * Autenticación: cabecera HTTP  X-Admin-Password: <ADMIN_PASSWORD>
+ * Autenticación: sesión de usuario + X-CSRF-Token; permisos por acción (auth-lib.php)
  */
 
 declare(strict_types=1);
 
-header('Content-Type: application/json; charset=utf-8');
-header('X-Content-Type-Options: nosniff');
-
-ini_set('display_errors', '0');
-ini_set('log_errors', '1');
-
-require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/auth-lib.php';
 require_once __DIR__ . '/lib.php';
 
-// ── CORS (solo origen de desarrollo) ─────────────────────────────────────────
-$allowedOrigins = ['http://localhost:5500', 'http://127.0.0.1:5500'];
-$origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
-if (in_array($origin, $allowedOrigins, true)) {
-    header('Access-Control-Allow-Origin: ' . $origin);
-    header('Access-Control-Allow-Credentials: true');
-}
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-Admin-Password');
+// CORS, cabeceras JSON y comprobación de método (ver auth-lib.php)
+apiBootstrap(['GET', 'POST', 'DELETE']);
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
-    exit;
-}
-
-// ── Autenticación ─────────────────────────────────────────────────────────────
-$receivedRaw      = isset($_SERVER['HTTP_X_ADMIN_PASSWORD']) ? $_SERVER['HTTP_X_ADMIN_PASSWORD'] : '';
-$receivedPassword = ($receivedRaw !== '') ? (base64_decode($receivedRaw, false) ?: '') : '';
-
-if (!defined('ADMIN_PASSWORD') || !hash_equals(ADMIN_PASSWORD, $receivedPassword)) {
-    http_response_code(401);
-    error_log('[presenciales-csv] Intento de acceso con contraseña incorrecta desde ' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
-    exit(json_encode(['error' => 'No autorizado']));
-}
-
-// ── Conexión a la base de datos ───────────────────────────────────────────────
-try {
-    $pdo = new PDO(DB_DSN, DB_USER, DB_PASSWORD, [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES   => false,
-    ]);
-} catch (\PDOException $e) {
-    http_response_code(503);
-    error_log('[presenciales-csv] DB error: ' . $e->getMessage());
-    exit(json_encode(['error' => 'Base de datos no disponible']));
-}
+// La autenticación (sesión + CSRF) y los permisos se exigen por acción más abajo.
+$pdo = getDb();
 
 // ═════════════════════════════════════════════════════════════════════════════
 // GET — Listar presenciales
 // ═════════════════════════════════════════════════════════════════════════════
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    requirePermission('presenciales.view');
     $search = isset($_GET['q']) ? trim($_GET['q']) : '';
 
     $sql = 'SELECT * FROM ' . DB_TABLE_PRESENCIALES;
@@ -92,6 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 // DELETE — Eliminar presencial
 // ═════════════════════════════════════════════════════════════════════════════
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+    requirePermission('presenciales.delete');
     $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
     if ($id <= 0) {
@@ -115,6 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 // POST — Procesar CSV
 // ═════════════════════════════════════════════════════════════════════════════
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requirePermission('presenciales.import');
     $inputData = file_get_contents('php://input');
     $decoded = json_decode($inputData, true);
 
@@ -143,7 +108,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         foreach ($students as $idx => $student) {
             try {
-                $errors[] = 'Subiendo fila ' . ($idx + 1) . '. Datos: ' . json_encode($student);
                 // Validar y sanitizar campos
                 $nombre = sanitizeName($student['nombre_diploma'] ?? '', 120);
                 if (trim($nombre) === '') {
@@ -188,7 +152,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     continue;
                 }
                 $telefono = sanitizeString($student['telefono'] ?? '', 30);
-                $linkedin = checkUrl($student['linkedin']);
+                $linkedin = checkUrl($student['linkedin'] ?? '');
                 $interes_profesional = sanitizeString($student['interes_profesional'] ?? '', 255);
                 $intolerancias = sanitizeString($student['intolerancias'] ?? '', 255);
                 $vip_text = strtolower(trim($student['vip'] ?? ''));
@@ -240,7 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (\PDOException $e) {
         http_response_code(500);
         error_log('[presenciales-csv] DB error: ' . $e->getMessage());
-        exit(json_encode(['error' => 'Error en base de datos: ' . $e->getMessage()]));
+        exit(json_encode(['error' => 'Error en base de datos']));
     }
     exit;
 }

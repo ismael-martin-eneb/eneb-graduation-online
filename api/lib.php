@@ -988,3 +988,58 @@ function _base64url(string $data): string
 {
     return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
 }
+
+/**
+ * Persiste en BD los datos que Moodle devuelve para un alumno:
+ *  - actualiza pais y campus en zoho_leads
+ *  - crea los programas (eneb_programs) que falten
+ *  - registra la graduación (eneb_graduates) si no existe ya
+ * Es idempotente: se puede llamar varias veces para el mismo alumno.
+ *
+ * @param PDO   $pdo           Conexión activa
+ * @param int   $leadId        zoho_leads.id del alumno
+ * @param array $moodleResult  Resultado de getMoodleEmbajador_cli()
+ * @param int   $fallbackTime  Timestamp usado si Moodle no da fecha de fin
+ * @return int  Nº de programas procesados
+ */
+function saveMoodleGraduate(PDO $pdo, int $leadId, array $moodleResult, int $fallbackTime): int
+{
+    if (empty($moodleResult['found'])) {
+        return 0;
+    }
+    $site = (string) $moodleResult['site'];
+    $data = $moodleResult['data'] ?? [];
+
+    if (!empty($data['pais'])) {
+        $pdo->prepare('UPDATE ' . DB_TABLE_ZOHO_LEADS . ' SET pais = :pais, campus = :campus WHERE id = :id')
+            ->execute([':pais' => $data['pais'], ':campus' => $site, ':id' => $leadId]);
+    }
+
+    $checkProg = $pdo->prepare('SELECT id FROM ' . DB_TABLE_PROGRAMAS . ' WHERE id_curso = :c AND campus = :s LIMIT 1');
+    $insProg   = $pdo->prepare('INSERT INTO ' . DB_TABLE_PROGRAMAS . ' (id_curso, name, campus) VALUES (:c, :n, :s)');
+    $checkGrad = $pdo->prepare('SELECT COUNT(*) FROM ' . DB_TABLE_GRADUADOS . ' WHERE id_alumno = :a AND program_id = :p');
+    $insGrad   = $pdo->prepare('INSERT INTO ' . DB_TABLE_GRADUADOS . ' (id_alumno, program_id, graduation_date, grade, cumlaude) VALUES (:a, :p, :d, :g, :l)');
+
+    $count = 0;
+    foreach (($data['programas'] ?? []) as $prog) {
+        $checkProg->execute([':c' => (int) $prog['curso_id'], ':s' => $site]);
+        $programId = $checkProg->fetchColumn();
+        if (!$programId) {
+            $insProg->execute([':c' => (int) $prog['curso_id'], ':n' => (string) $prog['curso'], ':s' => $site]);
+            $programId = (int) $pdo->lastInsertId();
+        }
+        $checkGrad->execute([':a' => $leadId, ':p' => $programId]);
+        if ((int) $checkGrad->fetchColumn() === 0) {
+            $fecha = !empty($prog['fecha_fin']) ? (int) $prog['fecha_fin'] : $fallbackTime;
+            $insGrad->execute([
+                ':a' => $leadId,
+                ':p' => $programId,
+                ':d' => date('Y-m-d', $fecha),
+                ':g' => (float) ($prog['nota'] ?? 0),
+                ':l' => !empty($prog['cumlaude']) ? 1 : 0,
+            ]);
+        }
+        $count++;
+    }
+    return $count;
+}

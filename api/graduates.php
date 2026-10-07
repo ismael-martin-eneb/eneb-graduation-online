@@ -8,8 +8,11 @@
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 
-// CORS: permite peticiones desde el servidor de desarrollo (Live Server)
-$allowedOrigins = ['http://localhost:5500', 'http://127.0.0.1:5500'];
+require_once __DIR__ . '/config.php';
+
+// CORS: solo orígenes explícitamente permitidos (ADMIN_ALLOWED_ORIGINS en config.php).
+// Por defecto no se habilita: la web y la API comparten origen.
+$allowedOrigins = defined('ADMIN_ALLOWED_ORIGINS') ? ADMIN_ALLOWED_ORIGINS : [];
 $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
 if (in_array($origin, $allowedOrigins, true)) {
     header('Access-Control-Allow-Origin: ' . $origin);
@@ -24,7 +27,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 
-require_once __DIR__ . '/config.php';
 
 // Códigos ISO 3166-1 alpha-2 conocidos (solo para validación; los nombres se traducen en el frontend)
 $KNOWN_COUNTRY_CODES = [
@@ -145,6 +147,48 @@ try {
         ];
     }
 
+    // ── Respaldo: alumnos de zoho_leads sin registro en eneb_graduates ──────
+    // Aún no tienen programa/nota asociados (p. ej. importados por CSV), así
+    // que se agrupan en una sección sintética por campus para que sean visibles.
+    $orphans = $pdo->query('
+        SELECT zl.id, zl.nombre, zl.pais, zl.foto, zl.foto_graduate, zl.frase, zl.campus
+        FROM zoho_leads zl
+        LEFT JOIN eneb_graduates eg ON eg.id_alumno = zl.id
+        WHERE eg.id IS NULL
+        ORDER BY zl.campus, zl.nombre
+    ')->fetchAll();
+
+    $campusNames = [];
+    foreach ($orphans as $row) {
+        $campus = (string) ($row['campus'] ?? '');
+        $pid    = 'campus-' . substr(md5($campus), 0, 8);
+        if (!isset($campusNames[$pid])) {
+            $host = parse_url($campus, PHP_URL_HOST) ?: 'ENEB';
+            $campusNames[$pid] = true;
+            $programs[] = [
+                'id'        => $pid,
+                'name'      => 'Graduados ' . $host,
+                'shortName' => 'Graduados ' . $host,
+                'year'      => 2026,
+                'campus'    => $campus,
+            ];
+        }
+        $rawPais = $row['pais'] !== null ? strtoupper(trim((string) $row['pais'])) : '';
+        $graduates[] = [
+            'id'        => $pid . '-' . $row['id'],
+            'name'      => $row['nombre'],
+            'country'   => $rawPais !== '' ? $rawPais : null,
+            'programId' => $pid,
+            'honor'     => deriveHonorKey(0.0, 0),
+            'grade'     => '0.00',
+            'badges'    => deriveBadges(0),
+            'year'      => 2026,
+            'message'   => $row['frase'] !== null ? $row['frase'] : '',
+            'photo'     => ($row['foto'] !== null && $row['foto'] !== '') ? $row['foto'] : null,
+            'photo_graduate' => ($row['foto_graduate'] !== null && $row['foto_graduate'] !== '') ? $row['foto_graduate'] : null,
+        ];
+    }
+
     error_log('[graduates] OK — programas: ' . count($programs) . ', graduados: ' . count($graduates));
 } catch (PDOException $e) {
     $queryError = $e->getMessage();
@@ -153,7 +197,8 @@ try {
 
 $output = ['programs' => $programs, 'graduates' => $graduates];
 if ($queryError !== null) {
-    $output['_error'] = $queryError; // solo en depuración; eliminar en producción
+    // El detalle va solo al log; al cliente se le indica un fallo genérico
+    $output['error'] = 'No se pudieron cargar los graduados';
 }
 
 echo json_encode($output, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

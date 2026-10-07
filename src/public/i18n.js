@@ -1,8 +1,11 @@
+import { createContext, useContext } from "react";
+
 // =======================================================
 // ENEB · Graduación Online — i18n (ES / EN / PT)
 // =======================================================
 
-window.TRANSLATIONS = {
+/** Diccionarios de traducción por idioma (es/en/pt). Claves `country_XX` = fallback de países. */
+export const TRANSLATIONS = {
   es: {
     searchPlaceholder: "Encontrarme…",
     searchLabel: "Buscar graduado",
@@ -170,45 +173,40 @@ window.TRANSLATIONS = {
   },
 };
 
-// React context — valor por defecto "es"
-window.LangContext = React.createContext("es");
+/** Contexto de idioma activo (por defecto "es"). Lo provee <App/>. */
+export const LangContext = createContext("es");
 
-// Hook reutilizable: devuelve función t(key, fallback?)
-window.useT = function () {
-  var lang = React.useContext(window.LangContext);
-  return function (key, fallback) {
-    var dict = window.TRANSLATIONS[lang] || window.TRANSLATIONS["es"];
+/** Hook: devuelve t(key, fallback?) con caída al español y luego a la propia clave. */
+export function useT() {
+  const lang = useContext(LangContext);
+  return (key, fallback) => {
+    const dict = TRANSLATIONS[lang] || TRANSLATIONS.es;
     if (dict[key] !== undefined) return dict[key];
-    // Fallback al español si la clave existe allí
-    if (window.TRANSLATIONS["es"][key] !== undefined) return window.TRANSLATIONS["es"][key];
+    if (TRANSLATIONS.es[key] !== undefined) return TRANSLATIONS.es[key];
     return fallback !== undefined ? fallback : key;
   };
-};
+}
 
-// Hook para resolver nombres de país:
-// 1. Intl.DisplayNames (cubre los 249 códigos ISO en cualquier idioma del navegador)
-// 2. Traducciones hardcoded como fallback para navegadores sin soporte
-// 3. El propio código ISO como último recurso
-window.useCountryName = function () {
-  var lang = React.useContext(window.LangContext);
-  return function (code) {
-    if (!code || code === 'unknown' || code.trim() === '') return '';
-    var upper = code.trim().toUpperCase();
-    // 1. Intl.DisplayNames — cobertura completa y automática
-    if (typeof Intl !== 'undefined' && Intl.DisplayNames) {
-      try {
-        var dn = new Intl.DisplayNames([lang, 'es'], { type: 'region' });
-        var resolved = dn.of(upper);
-        // Intl devuelve el propio código si no lo reconoce; ignoramos ese caso
-        if (resolved && resolved !== upper) return resolved;
-      } catch (e) {}
+/**
+ * Resuelve el nombre de un país a partir de su código ISO-2:
+ * 1) Intl.DisplayNames, 2) diccionario local, 3) el propio código.
+ */
+export function resolveCountryName(code, lang) {
+  if (!code || code === "unknown" || code.trim() === "") return "";
+  const upper = code.trim().toUpperCase();
+  try {
+    if (typeof Intl !== "undefined" && Intl.DisplayNames) {
+      const r = new Intl.DisplayNames([lang, "es"], { type: "region" }).of(upper);
+      if (r && r !== upper) return r; // Intl devuelve el código si no lo conoce
     }
-    // 2. Traducciones hardcoded
-    var dict = window.TRANSLATIONS[lang] || window.TRANSLATIONS['es'];
-    var key  = 'country_' + upper;
-    if (dict[key]) return dict[key];
-    if (window.TRANSLATIONS['es'][key]) return window.TRANSLATIONS['es'][key];
-    // 3. Código ISO como último recurso
-    return upper;
-  };
-};
+  } catch (e) { /* navegador sin soporte: usamos el diccionario */ }
+  const key = "country_" + upper;
+  const dict = TRANSLATIONS[lang] || TRANSLATIONS.es;
+  return dict[key] || TRANSLATIONS.es[key] || upper;
+}
+
+/** Hook: devuelve countryName(code) en el idioma activo. */
+export function useCountryName() {
+  const lang = useContext(LangContext);
+  return (code) => resolveCountryName(code, lang);
+}

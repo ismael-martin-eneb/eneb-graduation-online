@@ -11,64 +11,25 @@
  * POST /api/admin-photos.php action=delete → elimina la foto de un lead (foto = NULL)
  *                    lead_id (int)
  *
- * Autenticación: cabecera HTTP  X-Admin-Password: <ADMIN_PASSWORD>
+ * Autenticación: sesión de usuario + X-CSRF-Token; permisos por acción (auth-lib.php)
  */
 
 declare(strict_types=1);
 
-header('Content-Type: application/json; charset=utf-8');
-header('X-Content-Type-Options: nosniff');
-
-ini_set('display_errors', '0');
-ini_set('log_errors', '1');
-
-require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/auth-lib.php';
 require_once __DIR__ . '/lib.php';
 
-// ── CORS (solo origen de desarrollo) ─────────────────────────────────────────
-$allowedOrigins = ['http://localhost:5500', 'http://127.0.0.1:5500'];
-$origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
-if (in_array($origin, $allowedOrigins, true)) {
-    header('Access-Control-Allow-Origin: ' . $origin);
-    header('Access-Control-Allow-Credentials: true');
-}
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-Admin-Password');
+// CORS, cabeceras JSON y comprobación de método (ver auth-lib.php)
+apiBootstrap(['GET', 'POST']);
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
-    exit;
-}
-
-// ── Autenticación ─────────────────────────────────────────────────────────────
-// El cliente envía la contraseña codificada en base64 para evitar problemas
-// con caracteres no-ASCII en cabeceras HTTP (p. ej. «ñ», «á», etc.).
-$receivedRaw      = isset($_SERVER['HTTP_X_ADMIN_PASSWORD']) ? $_SERVER['HTTP_X_ADMIN_PASSWORD'] : '';
-$receivedPassword = ($receivedRaw !== '') ? (base64_decode($receivedRaw, false) ?: '') : '';
-
-if (!defined('ADMIN_PASSWORD') || !hash_equals(ADMIN_PASSWORD, $receivedPassword)) {
-    http_response_code(401);
-    error_log('[admin-photos] Intento de acceso con contraseña incorrecta desde ' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
-    exit(json_encode(['error' => 'No autorizado']));
-}
-
-// ── Conexión a la base de datos ───────────────────────────────────────────────
-try {
-    $pdo = new PDO(DB_DSN, DB_USER, DB_PASSWORD, [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES   => false,
-    ]);
-} catch (\PDOException $e) {
-    http_response_code(503);
-    error_log('[admin-photos] DB error: ' . $e->getMessage());
-    exit(json_encode(['error' => 'Base de datos no disponible']));
-}
+// La autenticación (sesión + CSRF) y los permisos se exigen por acción más abajo.
+$pdo = getDb();
 
 // ═════════════════════════════════════════════════════════════════════════════
 // GET — Listar leads
 // ═════════════════════════════════════════════════════════════════════════════
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    requirePermission('graduates.view');
     $search = isset($_GET['q']) ? trim($_GET['q']) : '';
 
     // GROUP BY para obtener UNA fila por lead aunque tenga varios programas.
@@ -117,6 +78,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $action = isset($_POST['action']) ? trim($_POST['action']) : 'upload';
     $leadId = isset($_POST['lead_id']) ? (int) $_POST['lead_id'] : 0;
+
+    // Permiso requerido según la acción
+    $requiredPermission = [
+        'delete'      => 'photos.delete',
+        'delete_lead' => 'graduates.delete',
+        'update_info' => 'graduates.edit',
+    ][$action] ?? 'photos.upload';
+    requirePermission($requiredPermission);
 
     if ($leadId <= 0) {
         http_response_code(422);
@@ -186,6 +155,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $updates[]            = 'id_alumno = :id_alumno';
             $params[':id_alumno'] = $idAlumnoVal;
+        }
+
+        // nombre: opcional (el panel antiguo lo enviaba pero se ignoraba); no puede quedar vacío
+        if (array_key_exists('nombre', $_POST)) {
+            $nombreVal = mb_substr(trim($_POST['nombre']), 0, 150);
+            if ($nombreVal === '') {
+                http_response_code(422);
+                exit(json_encode(['error' => 'nombre no puede estar vacío']));
+            }
+            $updates[]          = 'nombre = :nombre';
+            $params[':nombre']  = $nombreVal;
         }
 
         // frase: texto libre, máx. 100 caracteres, obligatorio (columna NOT NULL)

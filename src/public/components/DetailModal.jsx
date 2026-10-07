@@ -1,10 +1,14 @@
+import { useState, useEffect } from "react";
+import { useT, useCountryName } from "../i18n.js";
+import { IconDiploma, IconMedal, IconFlame, IconClose, IconGrade, IconShare } from "./Icons.jsx";
+import Avatar from "./Avatar.jsx";
 // Modal con ficha detallada del alumno
-function DetailModal({ graduate, program, onClose }) {
-  const [copied, setCopied] = React.useState(false);
-  const t = window.useT();
-  const countryName = window.useCountryName();
+export default function DetailModal({ graduate, program, onClose }) {
+  const [copied, setCopied] = useState(false);
+  const t = useT();
+  const countryName = useCountryName();
 
-  React.useEffect(() => {
+  useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
@@ -33,18 +37,18 @@ function DetailModal({ graduate, program, onClose }) {
   };
 
   const badgeIcon = (icon) =>
-    icon === "diploma" ? window.IconDiploma : icon === "medal" ? window.IconMedal : window.IconFlame;
+    icon === "diploma" ? IconDiploma : icon === "medal" ? IconMedal : IconFlame;
 
   return (
     <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <button className="modal__close" onClick={onClose} aria-label={t("close")}>
-          <window.IconClose size={22} color="#fff" />
+          <IconClose size={22} color="#fff" />
         </button>
 
         <div className="modal__hero">
           <div className="modal__photo">
-            <window.Avatar size={220} tone="dark" gender={graduate.gender} photo={graduate.photo} />
+            <Avatar size={220} tone="dark" gender={graduate.gender} photo={graduate.photo} />
           </div>
           <div className="modal__hero-text">
             <div className="modal__kicker">{t("classOf")} {graduate.year}{graduate.country && graduate.country !== "unknown" ? ` · ${countryName(graduate.country)}` : ""}</div>
@@ -52,7 +56,7 @@ function DetailModal({ graduate, program, onClose }) {
             <div className="modal__program">{program.name}</div>
             <div className="modal__honor-row">
               <span className="modal__pill modal__pill--gold">
-                <window.IconGrade size={14} color="#a30911" />
+                <IconGrade size={14} color="#a30911" />
                 {t("honor_" + graduate.honor, graduate.honor)}
               </span>
               <span className="modal__pill">{ t("averageGrade") } {graduate.grade}</span>
@@ -96,7 +100,7 @@ function DetailModal({ graduate, program, onClose }) {
             </a>
           )}
           <button className="btn btn--ghost" onClick={handleShare}>
-            <window.IconShare size={16} color="#fff" />
+            <IconShare size={16} color="#fff" />
             {copied ? t("linkCopied") : t("shareProfile")}
           </button>
           <button className="btn btn--solid" onClick={onClose}>{t("close")}</button>
@@ -105,5 +109,3 @@ function DetailModal({ graduate, program, onClose }) {
     </div>
   );
 }
-
-window.DetailModal = DetailModal;

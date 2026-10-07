@@ -1,6 +1,6 @@
 // Fondo con partículas/malla para emular los "Group" del Figma
 // (una estética de red + puntos sobre el gradiente rojo).
-function BackgroundFX() {
+export default function BackgroundFX() {
   return (
     <div className="bg-fx" aria-hidden="true">
       {/* Malla superior derecha (lado del buscador/logo) */}
@@ -69,5 +69,3 @@ function BackgroundFX() {
     </div>
   );
 }
-
-window.BackgroundFX = BackgroundFX;
